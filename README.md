@@ -12,7 +12,7 @@ You keep everyday money in your normal wallet and move savings into the vault. E
 
 ## Status
 
-The repo is set up and the tooling works. The Solana program is an empty stub; its actions are being added one user story at a time. See [Built before vs. during the hackathon](#built-before-vs-during-the-hackathon).
+The repo is set up and the tooling works. The Solana program's actions are being added one user story at a time. Done so far: create vault. See [Built before vs. during the hackathon](#built-before-vs-during-the-hackathon).
 
 ## Stack
 
@@ -31,7 +31,9 @@ The repo is set up and the tooling works. The Solana program is an empty stub; i
 │   ├── Anchor.toml             Program address and cluster (devnet)
 │   └── programs/pause/src/
 │       ├── lib.rs              The program: all vault rules live here
-│       └── tests.rs            LiteSVM tests: who is refused, and when
+│       ├── instructions/       One file per action
+│       ├── state/              Account structs (Vault)
+│       └── tests/              LiteSVM tests: who is refused, and when
 ├── src/
 │   ├── App.tsx                 Website
 │   ├── providers.tsx           Solana connection and wallets
@@ -133,6 +135,7 @@ cd .. && npm run codegen     # keep the client in sync, then commit
 **During the hackathon**
 
 - Repo set up for Pause: program stub with its own devnet address, website shell, tooling (ESLint, Prettier, rustfmt, Clippy, pre-commit hook), CI and this README.
+- Program: `create_vault` (US-2, US-3, US-19), with a `demo` build feature that allows 1-minute waits on devnet only.
 - _Each feature is added here as it lands._
 
 ## License

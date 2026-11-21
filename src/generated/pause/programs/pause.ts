@@ -6,7 +6,93 @@
  * @see https://github.com/codama-idl/codama
  */
 
-import { type Address } from "@solana/kit";
+import {
+  assertIsInstructionWithAccounts,
+  containsBytes,
+  fixEncoderSize,
+  getBytesEncoder,
+  type Address,
+  type Instruction,
+  type InstructionWithData,
+  type ReadonlyUint8Array,
+} from "@solana/kit";
+import {
+  parseCreateVaultInstruction,
+  type ParsedCreateVaultInstruction,
+} from "../instructions";
 
 export const PAUSE_PROGRAM_ADDRESS =
   "BUFdujWydbi7UA13x1EnBavq7iwNjaxip5Csuv9fjEDz" as Address<"BUFdujWydbi7UA13x1EnBavq7iwNjaxip5Csuv9fjEDz">;
+
+export enum PauseAccount {
+  Vault,
+}
+
+export function identifyPauseAccount(
+  account: { data: ReadonlyUint8Array } | ReadonlyUint8Array,
+): PauseAccount {
+  const data = "data" in account ? account.data : account;
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([211, 8, 232, 43, 2, 152, 117, 119]),
+      ),
+      0,
+    )
+  ) {
+    return PauseAccount.Vault;
+  }
+  throw new Error(
+    "The provided account could not be identified as a pause account.",
+  );
+}
+
+export enum PauseInstruction {
+  CreateVault,
+}
+
+export function identifyPauseInstruction(
+  instruction: { data: ReadonlyUint8Array } | ReadonlyUint8Array,
+): PauseInstruction {
+  const data = "data" in instruction ? instruction.data : instruction;
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([29, 237, 247, 208, 193, 82, 54, 135]),
+      ),
+      0,
+    )
+  ) {
+    return PauseInstruction.CreateVault;
+  }
+  throw new Error(
+    "The provided instruction could not be identified as a pause instruction.",
+  );
+}
+
+export type ParsedPauseInstruction<
+  TProgram extends string = "BUFdujWydbi7UA13x1EnBavq7iwNjaxip5Csuv9fjEDz",
+> = {
+  instructionType: PauseInstruction.CreateVault;
+} & ParsedCreateVaultInstruction<TProgram>;
+
+export function parsePauseInstruction<TProgram extends string>(
+  instruction: Instruction<TProgram> & InstructionWithData<ReadonlyUint8Array>,
+): ParsedPauseInstruction<TProgram> {
+  const instructionType = identifyPauseInstruction(instruction);
+  switch (instructionType) {
+    case PauseInstruction.CreateVault: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: PauseInstruction.CreateVault,
+        ...parseCreateVaultInstruction(instruction),
+      };
+    }
+    default:
+      throw new Error(
+        `Unrecognized instruction type: ${instructionType as string}`,
+      );
+  }
+}

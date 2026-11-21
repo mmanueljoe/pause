@@ -18,9 +18,12 @@ idl-build = ["anchor-lang/idl-build"]
 anchor-debug = []
 custom-heap = []
 custom-panic = []
+# Devnet only: allows waits as short as 1 minute so the demo fits in 3 minutes.
+# A build without this feature cannot accept short waits at all.
+demo = []
 
 [dependencies]
-anchor-lang = "1.1.2"
+anchor-lang = { version = "1.1.2", features = ["event-cpi"] }
 
 [dev-dependencies]
 litesvm = "0.16.0"
