@@ -12,7 +12,9 @@ so the owner or a trusted guardian can stop it.
 ## Figma
 - File: https://www.figma.com/design/OGUzgNvZ3q3ZLaIOTfYzav/Pause-UI?node-id=0-1&t=Fv0oLBQK9cZ7iTsb-1
 - Pages: Foundations, Components, Screens, Archive
-- Frame names: "08 Waiting payment / Phone / Stopped"
+- Frame names: "NN Screen / Laptop|Phone / State" (screen 8 adds the role: "08 Waiting payment / Guardian / Phone / Stopped")
+- All 13 screens are designed. Figma is the source for their layout, states and copy; the doc keeps rules and behaviour only.
+- Developer handover: design/handover.md
 
 ## Rules
 - Use only the styles on Foundations and components on Components.

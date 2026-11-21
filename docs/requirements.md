@@ -78,15 +78,15 @@ These rules are enforced by the Solana program itself, so nobody, including us, 
 
 8. Changes that make the vault **less safe** wait, and the guardian can stop them: shortening the wait time, changing the guardian, removing the guardian.
 9. Changes that make the vault **safer** happen instantly: lengthening the wait time.
-10. Adding the **first** guardian to a vault with none is instant.
-11. Guardian changes and removal wait longer than withdrawals (see values below).
+10. A vault **must have a guardian** from the moment it is created. Adding a guardian later, to a vault left without one, waits the guardian wait like any other guardian change. (If adding were instant, a thief with the owner's key could add their own wallet as guardian and use Approve now to empty the vault at once.)
+11. Guardian changes and removal wait longer than withdrawals (see values below). Shortening the wait time waits the same guardian-change wait, so every less-safe change waits one number of days (3 by default).
 12. The guardian can never deposit, request withdrawals, or change settings. They can only stop or approve early.
 
 **Values** (Decision needed: confirm these)
 
 | Setting | Default | Choices shown at setup |
 | --- | --- | --- |
-| Withdrawal wait | 6 hours | "1 hour: fastest" · "6 hours: recommended" · "24 hours: gives your guardian the most time to check" · custom up to 7 days |
+| Withdrawal wait | 24 hours | "1 hour: fastest" · "6 hours" · "24 hours: recommended. Your guardian has time to see it, even overnight" · custom up to 7 days |
 | Guardian change or removal wait | 3 days | 1 to 14 days |
 
 **Demo mode**
@@ -95,8 +95,14 @@ So the whole demo fits in a 3-minute video:
 
 - Exists only in the devnet version. The setting is built so it cannot be turned on in a real (mainnet) launch.
 - Withdrawal and guardian-change waits can be set in minutes (1 minute and up).
-- A visible "Demo mode · short timers" label shows on every screen, so judges know the short wait is deliberate.
+- A visible "Demo: waits are in minutes" label shows on every screen, so judges know the short wait is deliberate.
 - Everything else behaves exactly as in the real version.
+
+**Known limits** (say these plainly in the app and the pitch)
+
+- If **both** the owner's and the guardian's recovery phrases are stolen, the vault can be emptied: the thief requests a withdrawal and approves it now. That takes two people fooled separately, versus one today. Any two-person system, multisig included, has the same limit.
+- If nobody stops a theft before the wait ends, the money leaves.
+- Money in the owner's normal wallet is not protected. Only the vault is.
 
 ## Functional requirements
 
@@ -113,8 +119,8 @@ Each requirement has an ID so stories and tickets can point to it.
 
 | ID | Requirement |
 | --- | --- |
-| FR-3 | An owner can create one vault, choosing the withdrawal wait time. |
-| FR-4 | An owner can add a guardian by entering the guardian's wallet address, and send them an invite link. |
+| FR-3 | An owner can create one vault, choosing the withdrawal wait time and a guardian. A vault can't be created without a guardian. |
+| FR-4 | During setup, the owner enters the guardian's first name and wallet address. The name is stored in Supabase only and used in alerts ("Kofi will be told"). Once the vault is created, the owner gets an invite link to send the guardian. |
 | FR-5 | Safer setting changes apply instantly; less-safe changes wait and can be cancelled (Core rules 8–9). |
 
 **Money in and out**
@@ -124,7 +130,7 @@ Each requirement has an ID so stories and tickets can point to it.
 | FR-6 | An owner can deposit SOL from their wallet into the vault. Deposits are instant. |
 | FR-7 | An owner can request a withdrawal to any address, including their own wallet. Every withdrawal waits. |
 | FR-8 | Before confirming, the app shows when the money will arrive ("Arrives today at 6:42 pm") and that the guardian will be told. |
-| FR-9 | The owner gets a notification when a withdrawal arrives. |
+| FR-9 | The owner gets a notification when a withdrawal arrives: an email ("2 SOL arrived in your wallet") and, if the app is open, a toast. |
 
 **Waiting payments**
 
@@ -132,24 +138,25 @@ Each requirement has an ID so stories and tickets can point to it.
 | --- | --- |
 | FR-10 | Owner and guardian see every waiting withdrawal: amount, recipient, arrival time, time left. Recipients the vault hasn't sent to before are marked "New address". |
 | FR-11 | Owner or guardian can stop a waiting withdrawal. |
-| FR-11a | The guardian can approve a waiting withdrawal early; it is then sent immediately. |
+| FR-11a | The guardian can approve a waiting withdrawal early; it is then sent immediately. Because this can't be undone, the app asks the guardian to confirm first. Stop needs no confirmation: it is safe and urgent. |
 | FR-12 | When the wait ends, the withdrawal is released automatically by our backend, and only to its named recipient. The owner can release it manually if the backend is down. |
 
 **Guardian**
 
 | ID | Requirement |
 | --- | --- |
-| FR-13 | A guardian accepts an invite by connecting their wallet and giving an email for alerts. |
-| FR-14 | A guardian can see the vaults they protect, and nothing they can't act on. |
-| FR-15 | An owner can change or remove the guardian; the change waits and the current guardian can cancel it. |
+| FR-13 | A guardian accepts an invite by connecting their wallet and giving an email for alerts. If the connected wallet isn't the address the owner entered, the invite says so and asks them to check with the owner. Accepting proves the wallet is theirs by signing a message: free, off-chain, moves no money (the guardian is already set on Solana when the vault is created). On accepting, the guardian gets a welcome email so they can check it isn't in spam. Invite links work once and expire after 7 days; the owner can copy a new one from the vault home. |
+| FR-14 | A guardian can see the vaults they protect: waiting withdrawals and pending changes, plus the vault's balance, wait time and owner address (public on Solana anyway, and needed to judge "28% of her savings"). They see nothing else of the owner's, such as other wallets or history outside the vault. |
+| FR-15 | An owner can change or remove the guardian; the change waits and the current guardian can cancel it. Pending less-safe changes are pinned on the guardian's home with a Stop this change button, because a thief with the owner's key would try exactly this. |
 
 **Alerts and history**
 
 | ID | Requirement |
 | --- | --- |
 | FR-16 | Every waiting withdrawal and less-safe change shows in the guardian's app. When it looks like theft (see Alert levels), the guardian gets an **urgent** email written as a quick decision, with Approve now and Stop links. Other withdrawals get a **quiet** notice, so the guardian doesn't learn to ignore alerts. |
-| FR-17 | The owner gets an alert for every waiting withdrawal, so they notice ones they didn't make. |
-| FR-18 | Owner and guardian see a history of deposits, payments, cancellations and setting changes. |
+| FR-17 | The owner gets an alert for every waiting withdrawal, so they notice ones they didn't make. Urgent ones ask "Was this you?" and link to Stop and to the rescue. |
+| FR-17a | Every alert email: buttons only open Pause, where the action is confirmed with the wallet (an email can never stop or approve on its own); times are fixed ("leaves Sun at 9:14 pm"), never a countdown that goes stale; and a safety line, because scammers will copy these emails: "Pause will never ask for your recovery phrase. Before you connect your wallet, check the address bar says pause.app." (Replace pause.app with the real domain.) |
+| FR-18 | Owner and guardian see a history of deposits, payments, cancellations and setting changes. Each event links to its Solana transaction so anyone can check it. The app can't tell who signed with the owner's key, so wording follows the alert level: routine requests read "You asked…", urgent ones read "Your wallet asked…", because after a theft it may not have been them. |
 
 **Alert levels**
 
@@ -157,18 +164,25 @@ Our Supabase backend decides how loudly to alert. The Solana program does not: i
 
 | Level | When | Guardian gets |
 | --- | --- | --- |
-| Urgent | Any of: to an address the vault hasn't sent to before · 50% or more of the vault · a second withdrawal within 1 hour of another · requested between 11 pm and 6 am. Every less-safe setting change. | Email with Approve now and Stop: "Ama is sending 12 SOL to a new address. Was this her?" |
+| Urgent | Any of: to an address this vault has never paid · 25% or more of the vault, counting withdrawals already waiting · another withdrawal is already waiting · requested between 11 pm and 6 am in the owner's time zone · every less-safe setting change | Email with Approve now and Stop: "Ama is sending 12 SOL to a new address. Was this her?" |
 | Quiet | Everything else | Short email with a View link: "Ama is moving 2 SOL to an address she's used before. Nothing to do unless this looks wrong." |
 
 Sending to the owner's own wallet is **not** a reason to alert quietly: a thief with the recovery phrase controls that wallet too.
 
-Decision needed: confirm the urgent thresholds (50%, 1 hour, 11 pm to 6 am, and whose time zone).
+How the backend knows:
+
+- **New address.** The Pause program emits an event for every request, stop, approval and release (Anchor events). The backend listens and keeps, per vault, a list of addresses the vault has **paid**: added only when a payment to it is released, never when one is only requested or stopped. An address not on the list is new. This also catches a thief making their address look familiar with a tiny first payment: that payment is to a new address, so it is urgent.
+- **Share of the vault.** The backend reads the vault's balance from Solana when the request arrives, and adds every withdrawal already waiting.
+- **Another waiting.** The backend already tracks every open request from the events.
+- **Time of day.** The owner's browser sends their time zone when they create the vault; it is stored in Supabase only, never on Solana.
+
+The urgent level and the reasons that triggered it are saved with the withdrawal, so the app shows the same "New address" tag, level and reasons ("Why you got an urgent alert") as the email.
 
 **Solana program actions**
 
 | Action | Who can call it |
 | --- | --- |
-| Create vault | Owner |
+| Create vault (with its guardian) | Owner |
 | Deposit | Owner |
 | Request withdrawal (always waits) | Owner |
 | Stop withdrawal | Owner or guardian |
@@ -192,13 +206,16 @@ Each story is one Jira ticket. Copy the title, the story sentence and the accept
 
 **US-2 Create vault** (FR-3) As an owner, I want to create a vault and choose how long withdrawals wait, so my savings can't leave in seconds.
 
-- [ ] Wait choices shown: "1 hour: fastest", "6 hours: recommended", "24 hours: gives your guardian the most time to check", custom
+- [ ] Wait choices shown: "1 hour: fastest", "6 hours", "24 hours: recommended. Your guardian has time to see it, even overnight", custom (24 hours preselected)
 - [ ] The vault exists on devnet after I approve
 
 **US-3 Invite guardian** (FR-4, FR-13) As an owner, I want to add someone I trust as guardian, so they can stop a theft.
 
 - [ ] I enter their wallet address and get a link to send them
+- [ ] I enter their first name and wallet address; my own address is refused
+- [ ] After the vault is created, I get an invite link to send them
 - [ ] The guardian opens the link, connects their wallet, gives their email, and sees "You're now Ama's guardian"
+- [ ] If they connect a different wallet from the one I entered, they see "This isn't the wallet Ama added. Ask her to check the address."
 
 ### Epic 2: Money in and out
 
@@ -289,19 +306,24 @@ Each story is one Jira ticket. Copy the title, the story sentence and the accept
 - [ ] The guardian can't send payments or change settings
 - [ ] A release before the wait ends is refused
 
+**US-19 Thief can't add their own guardian instantly**
+
+- [ ] A vault can't be created without a guardian
+- [ ] Adding a guardian to a vault without one waits the full guardian wait
+
 ## Screens
 
 Every screen needs a phone layout as well as a laptop one. Each also needs its **states**: empty (nothing yet), loading (waiting for Solana), success, and error.
 
 | # | Screen | For | What it shows | Stories |
 | --- | --- | --- | --- | --- |
-| 1 | Landing page | Visitors | The one-sentence promise, a short timed story of a theft being stopped, Connect wallet button | US-1 |
+| 1 | Landing page | Visitors | The promise, the four mechanisms (time-locked withdrawals, guardian veto, theft alerts, rescue), Connect wallet button | US-1 |
 | 2 | Connect wallet | Everyone | What connecting shares; wallet choices (Phantom, Solflare); what happens if they have none, including on a phone | US-1 |
-| 3 | Create vault | New owner | Wait time choices with a plain explanation, Create button | US-2 |
-| 4 | Add guardian | Owner | Wallet address field, what a guardian can and can't do, copyable invite link | US-3 |
-| 5 | Vault home | Owner | Balance, waiting withdrawals with countdowns and arrival times, guardian status, Deposit and Send buttons | US-4, US-7 |
+| 3 | Create vault | New owner | Wait time choices with a plain explanation, Continue | US-2 |
+| 4 | Add guardian | Owner | Guardian's name and wallet address, what a guardian can and can't do, Review step, invite link once the vault is created | US-3 |
+| 5 | Vault home | Owner | Balance, waiting withdrawals with countdowns and arrival times, guardian status, Deposit and Withdraw buttons; a theft banner when a withdrawal looks like theft | US-4, US-7 |
 | 6 | Deposit | Owner | Amount field, wallet balance, confirm | US-4 |
-| 7 | Send payment | Owner | Recipient (own wallet one tap away), amount, arrival time preview, note that the guardian will be told | US-5, US-6 |
+| 7 | Withdraw | Owner | Recipient (own wallet one tap away), amount, arrival time preview, note that the guardian will be told | US-5, US-6 |
 | 8 | Waiting payment detail | Owner, guardian | Amount, recipient, arrival time, large countdown, Stop button; the guardian also sees Approve now | US-8, US-9 |
 | 9 | Guardian invite | Guardian | Who invited them, what being a guardian means, connect wallet, email field, Accept | US-3 |
 | 10 | Guardian home | Guardian | Vaults they protect; anything waiting pinned on top with Approve now and Stop; new addresses highlighted | US-7, US-8 |
@@ -313,23 +335,23 @@ Every screen needs a phone layout as well as a laptop one. Each also needs its *
 
 ### Screen design details
 
-Layout reads top to bottom. Copy in quotes is the real text to use.
+Screens 1 to 8 are designed: **Figma is the source for their layout, states and copy**, so their rows here only link to the frames. Rows 9 to 13 are briefs until those screens are designed. Copy in quotes is the real text to use.
 
 | # | Screen | Layout | Key copy |
 | --- | --- | --- | --- |
-| 1 | Landing | Top bar: logo left, Connect wallet pill right. Hero: headline left; right, the guardian's view of a paused payment (message, countdown, Approve now and Stop), animated (stacked on phone). The Ama and Kofi story as a short timeline with times (no "how it works" cards). One honest line on what Pause can't do. Closing line + Connect button. Footer: Solana devnet · Open source · Unaudited prototype | "Your savings can't disappear in seconds." / Sub: "Pause is a vault on Solana. Every withdrawal waits, so you or someone you trust can stop a theft." / Hero card: "Ama is sending 12 SOL to a new address. Was this her?" / Story: "9:14 pm Ama clicks a fake link and approves." · "9:14 pm The payment doesn't leave. It's paused." · "9:15 pm Kofi's phone: Ama is sending 12 SOL to a new address. Was this her?" · "9:17 pm He calls her. She didn't mean it. He stops it." · "Ama loses nothing." / Honest line: "Pause stops a theft before the money leaves. It can't get back money that's already gone." / Closing: "Every withdrawal waits. Someone you trust can stop it." |
-| 2 | Connect wallet | Laptop: centred modal on dimmed background. Phone: bottom sheet. Title, one line on what connecting shares, wallet rows (official logo, name, "Installed" or "Get"), help link. Phone with no wallet detected: "Open Pause in your wallet" with "Open in app" per wallet | "Connect your wallet" / "Pause only sees your wallet's address. Nothing leaves your wallet unless you approve it there." / Loading: "Check Phantom. Approve the request there." / Error: "Phantom didn't connect. You may have closed the request. Try again." / Laptop, no wallet: "You need a Solana wallet first. It's a free app that keeps your crypto. Most people start with Phantom." / Phone, no wallet: "On a phone, open Pause inside your wallet app to connect." / "Don't have one? Get Phantom" |
-| 3 | Create vault | Stepper (1 Wait time · 2 Guardian · 3 Review). Step 1: wait time choices (1h, 6h, 24h, custom) as large selectable cards, plain explanation under them | "How long should withdrawals wait?" / choices as in Core rules / help: "Every withdrawal waits this long. You or your guardian can stop it, and your guardian can approve it early." |
-| 4 | Add guardian | Stepper step 2: wallet address input, card listing "Can" and "Can't", invite link with copy button. Step 3 Review: summary card, Create vault button | "Who should be able to stop a payment?" / Can: "Get alerts · Stop a withdrawal · Approve one early" / Can't: "Spend or move your money" |
-| 5 | Vault home | Top bar with address chip. Balance card (large mono number). Waiting withdrawals list (status label, countdown, arrival time), or empty state. Guardian card. Deposit and Send buttons | Waiting row: "2 SOL to your wallet · arrives 6:42 pm" / Empty: "Nothing waiting. Withdrawals appear here while they wait." |
-| 6 | Deposit | Sheet or modal: amount input, wallet balance under it, Max link, Deposit button | "Move SOL into your vault" / Help: "Wallet balance: 20 SOL" / Error: "More than your wallet balance. Enter a smaller amount." |
-| 7 | Send payment | Recipient address input, amount input, "Send to my wallet" shortcut, preview card with arrival time, Confirm button | "Arrives today at 6:42 pm. Kofi will be told and can approve it sooner." |
-| 8 | Waiting payment detail | Status label. Amount (large mono) and recipient address. Countdown bar (signature element). Stop button (amber, full width on phone). Secondary note. Guardian view adds an Approve now button. A backup Release button appears only if the automatic release is late | "Paused · arrives 6:42 pm" / Stop: "Stop this payment" / Stopped: "Stopped. Still in your vault." / Arrived: "Sent to 7xKp…a91Q" / Under Approve now (guardian): "Only approve if Ama told you herself, by call or in person." |
-| 9 | Guardian invite | Centred card: who invited them, Can/Can't list, Connect wallet, email input, Accept | "Ama asked you to be her guardian" / "You'll see every payment that leaves her vault, and get an urgent alert if one looks like theft. You can stop it. You can never spend her money." |
-| 10 | Guardian home | List of vaults they protect. Anything waiting is pinned on top with countdown, Approve now and Stop buttons; new addresses highlighted | "You're protecting 1 vault" / Alert card: "Ama is sending 12 SOL to a new address. Was this her?" |
-| 11 | Settings | Sections: Wait time, Guardian. Each shows whether a change is instant or waits. Pending changes with countdown and Cancel | "Making the wait longer happens now. Making it shorter waits, and Kofi can stop it." |
-| 12 | History | Filter chips (All, Payments, Stopped, Settings). List rows: icon, description, amount, time, who | "Kofi stopped a payment of 12 SOL" |
-| 13 | Alert email | Urgent: logo, one sentence, amount and recipient card, time left, Approve now and amber Stop buttons, small footer. Quiet: logo, one sentence, View link, small footer | Urgent subject: "Ama's vault: 12 SOL is waiting" / Urgent body: "Ama is sending 12 SOL to a new address. It leaves in 5h 42m unless someone stops it." / Quiet subject: "Ama moved 2 SOL" / Quiet body: "Ama is moving 2 SOL to an address she's used before. It arrives at 6:42 pm. Nothing to do unless this looks wrong." |
+| 1 | Landing | Hero with the guardian's view of a paused payment, the four mechanisms, closing line. Marketing register | [Figma frames](https://www.figma.com/design/OGUzgNvZ3q3ZLaIOTfYzav/Pause-UI?node-id=10-15) |
+| 2 | Connect wallet | What connecting shares, wallet rows, phone path into the wallet app. Modal on laptop, sheet on phone | [Figma frames](https://www.figma.com/design/OGUzgNvZ3q3ZLaIOTfYzav/Pause-UI?node-id=18-292) |
+| 3 | Create vault | Step 1: wait time as choice cards, 24 hours recommended, live arrival example | [Figma frames](https://www.figma.com/design/OGUzgNvZ3q3ZLaIOTfYzav/Pause-UI?node-id=28-553) |
+| 4 | Add guardian | Step 2: name, address, can and can't. Step 3: Review, create, then the invite link | [Figma frames](https://www.figma.com/design/OGUzgNvZ3q3ZLaIOTfYzav/Pause-UI?node-id=31-859) |
+| 5 | Vault home | Balance, waiting list, guardian and wait-time cards, theft banner | [Figma frames](https://www.figma.com/design/OGUzgNvZ3q3ZLaIOTfYzav/Pause-UI?node-id=34-1349) |
+| 6 | Deposit | Amount with Max that keeps fees back, preview, done. Modal on laptop, sheet on phone | [Figma frames](https://www.figma.com/design/OGUzgNvZ3q3ZLaIOTfYzav/Pause-UI?node-id=38-1526) |
+| 7 | Withdraw | Where to, amount, honest preview, sent. Includes the Rescue version (US-8b) | [Figma frames](https://www.figma.com/design/OGUzgNvZ3q3ZLaIOTfYzav/Pause-UI?node-id=39-1897) |
+| 8 | Waiting payment detail | Guardian view (why urgent, Stop, Approve now with confirmation) and owner view (stop, arrived, late release) | [Figma frames](https://www.figma.com/design/OGUzgNvZ3q3ZLaIOTfYzav/Pause-UI?node-id=42-2301) |
+| 9 | Guardian invite | Who invited them, can and can't, connect the wallet Ama added (checked), email, accept by signing a free message; wrong wallet, no wallet on phone, expired link | [Figma frames](https://www.figma.com/design/OGUzgNvZ3q3ZLaIOTfYzav/Pause-UI?node-id=45-2840) |
+| 10 | Guardian home | Anything that needs the guardian is pinned on top in amber (urgent payments with reasons, countdown, Stop and Approve now; less-safe changes with Stop this change). Routine withdrawals stay quiet inside the vault card. Calm, loading and error states | [Figma frames](https://www.figma.com/design/OGUzgNvZ3q3ZLaIOTfYzav/Pause-UI?node-id=47-3156) |
+| 11 | Settings | Pending changes on top with countdown and Cancel. Wait time and guardian sections; editing shows the consequence first (safer: happens now, Save; less safe: waits 3 days, guardian told, Request change) | [Figma frames](https://www.figma.com/design/OGUzgNvZ3q3ZLaIOTfYzav/Pause-UI?node-id=48-3399) |
+| 12 | History | Filter chips, events grouped by day, one full sentence per event naming who did it, amount, time, link to view it on Solana. Owner and guardian versions; empty, loading, error | [Figma frames](https://www.figma.com/design/OGUzgNvZ3q3ZLaIOTfYzav/Pause-UI?node-id=49-3909) |
+| 13 | Alert email | Guardian urgent and quiet, owner urgent and arrived; each with a summary card, buttons that open Pause, a safety line and a footer. Lock-screen notification for the demo | [Figma frames](https://www.figma.com/design/OGUzgNvZ3q3ZLaIOTfYzav/Pause-UI?node-id=51-4197) |
 
 **Error copy (screens that send a transaction):** "That didn't go through. Nothing was sent. Try again." Loading: "Confirming on Solana…" Screens that don't send money (such as Connect wallet) say what actually went wrong instead.
 
@@ -344,7 +366,7 @@ Layout reads top to bottom. Copy in quotes is the real text to use.
 | Devices | Works on recent Chrome, Safari and Firefox, on laptop and phone screen sizes. |
 | Accessibility | Readable text contrast, keyboard use, countdowns that also show as text, not only as a ring. |
 | Plain language | No crypto jargon on screen without a short explanation. Amounts show in SOL with an approximate dollar value where possible. |
-| Privacy | Guardian emails are stored only in Supabase, never on Solana. |
+| Privacy | Guardian names and emails, and the owner's time zone, are stored only in Supabase, never on Solana. |
 | Honesty in copy | Never promise money can be recovered or that Pause makes theft impossible. |
 
 ## Design decisions
@@ -368,11 +390,37 @@ These are final unless the team changes them. Every Figma screen follows this se
 
 Calm, protective, human, like a careful older sibling. Short, plain sentences, never alarmist.
 
+One personality, two registers:
+
+| | Marketing | Product |
+| --- | --- | --- |
+| Where | Landing page, pitch, submission, demo video | Every in-app screen, alerts, emails, errors |
+| Job | Make someone care in five seconds | Help someone act correctly, right now |
+| Headlines | About the person's outcome, not the mechanism. Six words or fewer; a two-part fragment is fine: "What you save. Stays yours." | Say what is happening: "Ama is sending 12 SOL to a new address." |
+| Body | Two sentences: the problem, then what Pause is and what it guarantees | Full sentences: what happened, then what to do. Amount, person and time first |
+| Naming | Mechanisms are named nouns people can point at: Time-locked withdrawals, Guardian veto, Theft alerts, Rescue | Plain words for the same things: "waits", "stop", "approve now" |
+| Numbers | Concrete: "1 hour to 7 days" | Exact: "5h 42m left", "arrives 6:42 pm" |
+
 | Instead of | Say |
 | --- | --- |
 | "Transaction pending in time-lock queue" | "This payment is waiting. 5 hours 42 minutes left." |
 | "Unauthorized transfer detected!!" | "Kofi, Ama is sending 12 SOL to a new address. Was this her?" |
 | "Revolutionary decentralized security" | "Every withdrawal waits. Someone you trust can stop it." |
+
+**Off-tone: never write these.** They read as machine-written or as hype:
+
+| Pattern | Example to avoid |
+| --- | --- |
+| Dramatic denial lists | "Nobody can bend them: not a thief, not you, not us." |
+| "Not even…" | "Not even we can skip it." |
+| "It's not X, it's Y" contrasts | "It's not a wallet. It's a promise." |
+| Groups of three for rhythm | "Safe. Simple. Secure." |
+| Hype words | revolutionary, seamless, effortless, unlock, empower, next-generation |
+| Unexplained crypto jargon | non-custodial, PDA, multisig, permissionless, time-lock queue (explain it in plain words, or leave it out) |
+| Alarm | "WARNING", "!!", red for anything but a real error |
+| Machine labels as sentences | "WAITING · 5H 42M LEFT", "Stopped · money safe" |
+| Promises Pause can't keep | "theft-proof", "100% safe", "get your money back" |
+| Selling with fear | "Hackers are coming for your crypto." |
 
 ### Logo
 
@@ -482,8 +530,6 @@ The Solana track is automatic. Partner tracks and prizes are announced before ki
 | --- | --- | --- |
 | Product name | Keep "Pause" or choose another | Team, with designer |
 | Default values | Confirm the wait times in Core rules. There is no daily limit (decided: your normal wallet is for everyday money; a limit would let a thief take that amount instantly) | Team |
-| Recommended wait | Keep 6 hours as "recommended", or recommend 24 hours: thefts often happen at night, and a 6-hour wait started at midnight ends before the guardian wakes | Team |
-| Urgent alert thresholds | See Alert levels | Team |
 | Business model | Monthly fee for larger vaults, or a fee per released payment (see brief) | Team |
 | Alert channel | Email only, or email plus Telegram | Developer, based on time |
 | Founder-market fit | Our honest reason for building this, for the pitch and stage-2 judging | Team |
