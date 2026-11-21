@@ -22,8 +22,12 @@ const LAMPORTS_PER_SOL: u64 = 1_000_000_000;
 /// A fresh test chain with the program loaded.
 pub fn setup() -> LiteSVM {
     let mut svm = LiteSVM::new();
-    let program_bytes = include_bytes!("../../../../target/deploy/pause.so");
-    svm.add_program(PROGRAM_ID, program_bytes).unwrap();
+    // Read at run time (not with include_bytes!) so clippy can compile the
+    // tests before the program has been built, e.g. in CI.
+    let so_path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../target/deploy/pause.so");
+    let program_bytes =
+        std::fs::read(so_path).expect("pause.so not found: run `npm run program:build` first");
+    svm.add_program(PROGRAM_ID, &program_bytes).unwrap();
     svm
 }
 
