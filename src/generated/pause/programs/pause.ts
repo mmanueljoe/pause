@@ -6,4 +6,7 @@
  * @see https://github.com/codama-idl/codama
  */
 
-export * from "./vault";
+import { type Address } from "@solana/kit";
+
+export const PAUSE_PROGRAM_ADDRESS =
+  "BUFdujWydbi7UA13x1EnBavq7iwNjaxip5Csuv9fjEDz" as Address<"BUFdujWydbi7UA13x1EnBavq7iwNjaxip5Csuv9fjEDz">;

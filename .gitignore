@@ -29,3 +29,15 @@ lerna-debug.log*
 
 # TypeScript incremental build cache
 *.tsbuildinfo
+
+# Secrets: never commit env files or keypairs
+.env
+.env.*
+!.env.example
+*-keypair.json
+id.json
+*.pem
+
+# Supabase local state
+supabase/.temp/
+supabase/.branches/

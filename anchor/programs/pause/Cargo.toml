@@ -1,12 +1,13 @@
 [package]
-name = "vault"
+name = "pause"
 version = "0.1.0"
-description = "A simple SOL vault program"
+description = "Pause: a Solana vault where every withdrawal waits, so the owner or a guardian can stop it"
 edition = "2021"
+publish = false
 
 [lib]
 crate-type = ["cdylib", "lib"]
-name = "vault"
+name = "pause"
 
 [features]
 default = []

@@ -1,11 +1,16 @@
 [toolchain]
+anchor_version = "1.1.2"
+solana_version = "3.1.10"
 
 [features]
 resolution = true
 skip-lint = false
 
 [programs.devnet]
-vault = "2AzPfLBi9x8gbiUSWJEs9224yKQFxs9vFgY25PVJu3Fg"
+pause = "BUFdujWydbi7UA13x1EnBavq7iwNjaxip5Csuv9fjEDz"
+
+[programs.localnet]
+pause = "BUFdujWydbi7UA13x1EnBavq7iwNjaxip5Csuv9fjEDz"
 
 [provider]
 cluster = "devnet"

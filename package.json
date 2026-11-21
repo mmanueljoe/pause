@@ -1,31 +1,44 @@
 {
   "name": "pause",
-  "scripts": {
-    "anchor-build": "cd anchor && anchor build --ignore-keys",
-    "anchor-test": "cd anchor && anchor build --ignore-keys && cargo test",
-    "build": "tsc -b && vite build",
-    "ci": "npm run build && npm run lint && npm run format:check",
-    "codama:js": "codama run js",
-    "dev": "vite",
-    "format": "prettier --write .",
-    "format:check": "prettier --check .",
-    "lint": "eslint .",
-    "preview": "vite preview",
-    "setup": "npm run anchor-build && npm run codama:js"
-  },
-  "description": "React + Vite, Tailwind, @solana/react-hooks, Anchor vault program",
-  "keywords": [
-    "anchor",
-    "kit",
-    "react",
-    "solana-kit",
-    "tailwind",
-    "typescript",
-    "vite"
-  ],
   "version": "0.0.0",
   "private": true,
+  "description": "Pause: a Solana vault where every withdrawal waits, so the owner or a trusted guardian can stop it",
+  "keywords": [
+    "solana",
+    "anchor",
+    "vault",
+    "guardian",
+    "devnet"
+  ],
   "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -b",
+    "lint": "eslint . --max-warnings 0",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check": "npm run typecheck && npm run lint && npm run format:check && npm run build",
+    "program:build": "cd anchor && anchor build --ignore-keys",
+    "program:test": "npm run program:build && cd anchor && cargo test",
+    "program:lint": "cd anchor && cargo fmt --all --check && cargo clippy --all-targets -- -D warnings",
+    "program:format": "cd anchor && cargo fmt --all",
+    "codegen": "codama run js",
+    "setup": "npm run program:build && npm run codegen",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --max-warnings 0 --no-warn-ignored --fix",
+      "prettier --write"
+    ],
+    "*.{js,json,md,css,html,yml,yaml}": "prettier --write",
+    "anchor/**/*.rs": "rustfmt --edition 2021"
+  },
   "dependencies": {
     "@solana/client": "^1.2.0",
     "@solana/kit": "^5.1.0",
@@ -48,6 +61,8 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
     "globals": "^16.4.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
     "prettier": "^3.6.2",
     "typescript": "^5",
     "typescript-eslint": "^8.44.0",
