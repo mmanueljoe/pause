@@ -151,6 +151,7 @@ The first deploy reserved 600,000 bytes (`--max-len`), about twice the program's
 - Program: `change_withdrawal_wait`, `propose_guardian_change`, `apply_change`, `cancel_change` (US-10, US-11, US-16, US-17, US-19).
 - Program deployed to devnet (demo build).
 - Website foundation: design tokens, shared components, one page per screen, live vault data, role detection (FR-2). Moved from `@solana/react-hooks` to the maintained Kit 8 wallet stack.
+- Website: Landing page and Connect wallet dialog (screens 1 and 2, US-1).
 - _Each feature is added here as it lands._
 
 ## License
