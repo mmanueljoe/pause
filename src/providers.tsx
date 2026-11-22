@@ -1,14 +1,13 @@
-import { SolanaProvider } from "@solana/react-hooks";
-import { PropsWithChildren } from "react";
-import { autoDiscover, createClient } from "@solana/client";
+import { type PropsWithChildren } from "react";
+import { ClientProvider } from "@solana/react";
 
-const DEVNET_RPC_URL = "https://api.devnet.solana.com";
-
-const client = createClient({
-  endpoint: import.meta.env.VITE_SOLANA_RPC_URL || DEVNET_RPC_URL,
-  walletConnectors: autoDiscover(),
-});
+import { ToastProvider } from "./components/ui";
+import { client } from "./lib/solana/client";
 
 export function Providers({ children }: PropsWithChildren) {
-  return <SolanaProvider client={client}>{children}</SolanaProvider>;
+  return (
+    <ClientProvider client={client}>
+      <ToastProvider>{children}</ToastProvider>
+    </ClientProvider>
+  );
 }

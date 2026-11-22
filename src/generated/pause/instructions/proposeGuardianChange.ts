@@ -18,6 +18,8 @@ import {
   getOptionEncoder,
   getStructDecoder,
   getStructEncoder,
+  SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
+  SolanaError,
   transformEncoder,
   type AccountMeta,
   type AccountSignerMeta,
@@ -25,6 +27,7 @@ import {
   type Codec,
   type Decoder,
   type Encoder,
+  type HasAddress,
   type Instruction,
   type InstructionWithAccounts,
   type InstructionWithData,
@@ -33,24 +36,26 @@ import {
   type ReadonlyAccount,
   type ReadonlySignerAccount,
   type ReadonlyUint8Array,
-  type TransactionSigner,
   type WritableAccount,
 } from "@solana/kit";
+import {
+  getAccountMetaFactory,
+  getAddressFromResolvedInstructionAccount,
+  type InstructionAccountInput,
+  type InstructionAccountInputAddress,
+  type InstructionSignerInput,
+  type ResolvedInstructionAccount,
+  type ResolvedInstructionAccountMeta,
+} from "@solana/program-client-core";
 import { findVaultPda } from "../pdas";
 import { PAUSE_PROGRAM_ADDRESS } from "../programs";
-import {
-  expectAddress,
-  getAccountMetaFactory,
-  type ResolvedAccount,
-} from "../shared";
 
-export const PROPOSE_GUARDIAN_CHANGE_DISCRIMINATOR = new Uint8Array([
-  236, 28, 48, 25, 179, 178, 100, 230,
-]);
+export const PROPOSE_GUARDIAN_CHANGE_DISCRIMINATOR: ReadonlyUint8Array =
+  new Uint8Array([236, 28, 48, 25, 179, 178, 100, 230]);
 
-export function getProposeGuardianChangeDiscriminatorBytes() {
+export function getProposeGuardianChangeDiscriminatorBytes(): ReadonlyUint8Array {
   return fixEncoderSize(getBytesEncoder(), 8).encode(
-    PROPOSE_GUARDIAN_CHANGE_DISCRIMINATOR,
+    PROPOSE_GUARDIAN_CHANGE_DISCRIMINATOR
   );
 }
 
@@ -88,7 +93,7 @@ export type ProposeGuardianChangeInstructionData = {
 };
 
 export type ProposeGuardianChangeInstructionDataArgs = {
-  newGuardian: OptionOrNullable<Address>;
+  newGuardian: OptionOrNullable<Address | HasAddress>;
 };
 
 export function getProposeGuardianChangeInstructionDataEncoder(): Encoder<ProposeGuardianChangeInstructionDataArgs> {
@@ -100,7 +105,7 @@ export function getProposeGuardianChangeInstructionDataEncoder(): Encoder<Propos
     (value) => ({
       ...value,
       discriminator: PROPOSE_GUARDIAN_CHANGE_DISCRIMINATOR,
-    }),
+    })
   );
 }
 
@@ -117,29 +122,30 @@ export function getProposeGuardianChangeInstructionDataCodec(): Codec<
 > {
   return combineCodec(
     getProposeGuardianChangeInstructionDataEncoder(),
-    getProposeGuardianChangeInstructionDataDecoder(),
+    getProposeGuardianChangeInstructionDataDecoder()
   );
 }
 
 export type ProposeGuardianChangeAsyncInput<
-  TAccountOwner extends string = string,
-  TAccountVault extends string = string,
-  TAccountEventAuthority extends string = string,
-  TAccountProgram extends string = string,
+  TAccountOwner extends InstructionSignerInput = InstructionSignerInput,
+  TAccountVault extends InstructionAccountInput = InstructionAccountInput,
+  TAccountEventAuthority extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountProgram extends InstructionAccountInput = InstructionAccountInput,
 > = {
-  owner: TransactionSigner<TAccountOwner>;
+  owner: TAccountOwner;
   /** Built from the signer's wallet, so only the owner can change settings. */
-  vault?: Address<TAccountVault>;
-  eventAuthority: Address<TAccountEventAuthority>;
-  program: Address<TAccountProgram>;
+  vault?: TAccountVault;
+  eventAuthority: TAccountEventAuthority;
+  program: TAccountProgram;
   newGuardian: ProposeGuardianChangeInstructionDataArgs["newGuardian"];
 };
 
 export async function getProposeGuardianChangeInstructionAsync<
-  TAccountOwner extends string,
-  TAccountVault extends string,
-  TAccountEventAuthority extends string,
-  TAccountProgram extends string,
+  TAccountOwner extends InstructionSignerInput,
+  TAccountVault extends InstructionAccountInput,
+  TAccountEventAuthority extends InstructionAccountInput,
+  TAccountProgram extends InstructionAccountInput,
   TProgramAddress extends Address = typeof PAUSE_PROGRAM_ADDRESS,
 >(
   input: ProposeGuardianChangeAsyncInput<
@@ -148,29 +154,58 @@ export async function getProposeGuardianChangeInstructionAsync<
     TAccountEventAuthority,
     TAccountProgram
   >,
-  config?: { programAddress?: TProgramAddress },
+  config?: {
+    programAddress?: TProgramAddress | { readonly address: TProgramAddress };
+  }
 ): Promise<
   ProposeGuardianChangeInstruction<
     TProgramAddress,
-    TAccountOwner,
-    TAccountVault,
-    TAccountEventAuthority,
-    TAccountProgram
+    ResolvedInstructionAccountMeta<
+      TAccountOwner,
+      InstructionAccountInputAddress<TAccountOwner>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountVault,
+      InstructionAccountInputAddress<TAccountVault>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountEventAuthority,
+      InstructionAccountInputAddress<TAccountEventAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountProgram,
+      InstructionAccountInputAddress<TAccountProgram>
+    >
   >
 > {
   // Program address.
-  const programAddress = config?.programAddress ?? PAUSE_PROGRAM_ADDRESS;
+  const programAddressInput = config?.programAddress ?? PAUSE_PROGRAM_ADDRESS;
+  const programAddress =
+    typeof programAddressInput === "string"
+      ? programAddressInput
+      : programAddressInput.address;
+
+  // Account meta helper.
+  const getAccountMeta = getAccountMetaFactory(programAddress, "programId");
 
   // Original accounts.
   const originalAccounts = {
-    owner: { value: input.owner ?? null, isWritable: false },
-    vault: { value: input.vault ?? null, isWritable: true },
-    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
-    program: { value: input.program ?? null, isWritable: false },
+    owner: { value: input.owner ?? null, isSigner: true, isWritable: false },
+    vault: { value: input.vault ?? null, isSigner: false, isWritable: true },
+    eventAuthority: {
+      value: input.eventAuthority ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    program: {
+      value: input.program ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
-    ResolvedAccount
+    ResolvedInstructionAccount
   >;
 
   // Original args.
@@ -178,51 +213,69 @@ export async function getProposeGuardianChangeInstructionAsync<
 
   // Resolve default values.
   if (!accounts.vault.value) {
-    accounts.vault.value = await findVaultPda({
-      owner: expectAddress(accounts.owner.value),
-    });
+    accounts.vault.value = await findVaultPda(
+      {
+        owner: getAddressFromResolvedInstructionAccount(
+          "owner",
+          accounts.owner.value
+        ),
+      },
+      { programAddress }
+    );
   }
 
-  const getAccountMeta = getAccountMetaFactory(programAddress, "programId");
   return Object.freeze({
     accounts: [
-      getAccountMeta(accounts.owner),
-      getAccountMeta(accounts.vault),
-      getAccountMeta(accounts.eventAuthority),
-      getAccountMeta(accounts.program),
+      getAccountMeta("owner", accounts.owner),
+      getAccountMeta("vault", accounts.vault),
+      getAccountMeta("eventAuthority", accounts.eventAuthority),
+      getAccountMeta("program", accounts.program),
     ],
     data: getProposeGuardianChangeInstructionDataEncoder().encode(
-      args as ProposeGuardianChangeInstructionDataArgs,
+      args as ProposeGuardianChangeInstructionDataArgs
     ),
     programAddress,
   } as ProposeGuardianChangeInstruction<
     TProgramAddress,
-    TAccountOwner,
-    TAccountVault,
-    TAccountEventAuthority,
-    TAccountProgram
+    ResolvedInstructionAccountMeta<
+      TAccountOwner,
+      InstructionAccountInputAddress<TAccountOwner>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountVault,
+      InstructionAccountInputAddress<TAccountVault>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountEventAuthority,
+      InstructionAccountInputAddress<TAccountEventAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountProgram,
+      InstructionAccountInputAddress<TAccountProgram>
+    >
   >);
 }
 
 export type ProposeGuardianChangeInput<
-  TAccountOwner extends string = string,
-  TAccountVault extends string = string,
-  TAccountEventAuthority extends string = string,
-  TAccountProgram extends string = string,
+  TAccountOwner extends InstructionSignerInput = InstructionSignerInput,
+  TAccountVault extends InstructionAccountInput = InstructionAccountInput,
+  TAccountEventAuthority extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountProgram extends InstructionAccountInput = InstructionAccountInput,
 > = {
-  owner: TransactionSigner<TAccountOwner>;
+  owner: TAccountOwner;
   /** Built from the signer's wallet, so only the owner can change settings. */
-  vault: Address<TAccountVault>;
-  eventAuthority: Address<TAccountEventAuthority>;
-  program: Address<TAccountProgram>;
+  vault: TAccountVault;
+  eventAuthority: TAccountEventAuthority;
+  program: TAccountProgram;
   newGuardian: ProposeGuardianChangeInstructionDataArgs["newGuardian"];
 };
 
 export function getProposeGuardianChangeInstruction<
-  TAccountOwner extends string,
-  TAccountVault extends string,
-  TAccountEventAuthority extends string,
-  TAccountProgram extends string,
+  TAccountOwner extends InstructionSignerInput,
+  TAccountVault extends InstructionAccountInput,
+  TAccountEventAuthority extends InstructionAccountInput,
+  TAccountProgram extends InstructionAccountInput,
   TProgramAddress extends Address = typeof PAUSE_PROGRAM_ADDRESS,
 >(
   input: ProposeGuardianChangeInput<
@@ -231,50 +284,90 @@ export function getProposeGuardianChangeInstruction<
     TAccountEventAuthority,
     TAccountProgram
   >,
-  config?: { programAddress?: TProgramAddress },
+  config?: {
+    programAddress?: TProgramAddress | { readonly address: TProgramAddress };
+  }
 ): ProposeGuardianChangeInstruction<
   TProgramAddress,
-  TAccountOwner,
-  TAccountVault,
-  TAccountEventAuthority,
-  TAccountProgram
+  ResolvedInstructionAccountMeta<
+    TAccountOwner,
+    InstructionAccountInputAddress<TAccountOwner>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountVault,
+    InstructionAccountInputAddress<TAccountVault>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountEventAuthority,
+    InstructionAccountInputAddress<TAccountEventAuthority>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountProgram,
+    InstructionAccountInputAddress<TAccountProgram>
+  >
 > {
   // Program address.
-  const programAddress = config?.programAddress ?? PAUSE_PROGRAM_ADDRESS;
+  const programAddressInput = config?.programAddress ?? PAUSE_PROGRAM_ADDRESS;
+  const programAddress =
+    typeof programAddressInput === "string"
+      ? programAddressInput
+      : programAddressInput.address;
+
+  // Account meta helper.
+  const getAccountMeta = getAccountMetaFactory(programAddress, "programId");
 
   // Original accounts.
   const originalAccounts = {
-    owner: { value: input.owner ?? null, isWritable: false },
-    vault: { value: input.vault ?? null, isWritable: true },
-    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
-    program: { value: input.program ?? null, isWritable: false },
+    owner: { value: input.owner ?? null, isSigner: true, isWritable: false },
+    vault: { value: input.vault ?? null, isSigner: false, isWritable: true },
+    eventAuthority: {
+      value: input.eventAuthority ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    program: {
+      value: input.program ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
-    ResolvedAccount
+    ResolvedInstructionAccount
   >;
 
   // Original args.
   const args = { ...input };
 
-  const getAccountMeta = getAccountMetaFactory(programAddress, "programId");
   return Object.freeze({
     accounts: [
-      getAccountMeta(accounts.owner),
-      getAccountMeta(accounts.vault),
-      getAccountMeta(accounts.eventAuthority),
-      getAccountMeta(accounts.program),
+      getAccountMeta("owner", accounts.owner),
+      getAccountMeta("vault", accounts.vault),
+      getAccountMeta("eventAuthority", accounts.eventAuthority),
+      getAccountMeta("program", accounts.program),
     ],
     data: getProposeGuardianChangeInstructionDataEncoder().encode(
-      args as ProposeGuardianChangeInstructionDataArgs,
+      args as ProposeGuardianChangeInstructionDataArgs
     ),
     programAddress,
   } as ProposeGuardianChangeInstruction<
     TProgramAddress,
-    TAccountOwner,
-    TAccountVault,
-    TAccountEventAuthority,
-    TAccountProgram
+    ResolvedInstructionAccountMeta<
+      TAccountOwner,
+      InstructionAccountInputAddress<TAccountOwner>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountVault,
+      InstructionAccountInputAddress<TAccountVault>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountEventAuthority,
+      InstructionAccountInputAddress<TAccountEventAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountProgram,
+      InstructionAccountInputAddress<TAccountProgram>
+    >
   >);
 }
 
@@ -299,11 +392,16 @@ export function parseProposeGuardianChangeInstruction<
 >(
   instruction: Instruction<TProgram> &
     InstructionWithAccounts<TAccountMetas> &
-    InstructionWithData<ReadonlyUint8Array>,
+    InstructionWithData<ReadonlyUint8Array>
 ): ParsedProposeGuardianChangeInstruction<TProgram, TAccountMetas> {
   if (instruction.accounts.length < 4) {
-    // TODO: Coded error.
-    throw new Error("Not enough accounts");
+    throw new SolanaError(
+      SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
+      {
+        actualAccountMetas: instruction.accounts.length,
+        expectedAccountMetas: 4,
+      }
+    );
   }
   let accountIndex = 0;
   const getNextAccount = () => {
@@ -320,7 +418,7 @@ export function parseProposeGuardianChangeInstruction<
       program: getNextAccount(),
     },
     data: getProposeGuardianChangeInstructionDataDecoder().decode(
-      instruction.data,
+      instruction.data
     ),
   };
 }

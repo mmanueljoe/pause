@@ -9,14 +9,50 @@
 import {
   assertIsInstructionWithAccounts,
   containsBytes,
+  extendClient,
   fixEncoderSize,
   getBytesEncoder,
+  SOLANA_ERROR__PROGRAM_CLIENTS__FAILED_TO_IDENTIFY_ACCOUNT,
+  SOLANA_ERROR__PROGRAM_CLIENTS__FAILED_TO_IDENTIFY_INSTRUCTION,
+  SOLANA_ERROR__PROGRAM_CLIENTS__UNRECOGNIZED_INSTRUCTION_TYPE,
+  SolanaError,
   type Address,
+  type ClientWithRpc,
+  type ClientWithTransactionPlanning,
+  type ClientWithTransactionSending,
+  type ExtendedClient,
+  type GetAccountInfoApi,
+  type GetMultipleAccountsApi,
+  type HasAddress,
   type Instruction,
   type InstructionWithData,
   type ReadonlyUint8Array,
 } from "@solana/kit";
 import {
+  addSelfFetchFunctions,
+  addSelfPlanAndSendFunctions,
+  type SelfFetchFunctions,
+  type SelfPlanAndSendFunctions,
+} from "@solana/program-client-core";
+import {
+  getVaultCodec,
+  getWithdrawalCodec,
+  type Vault,
+  type VaultArgs,
+  type Withdrawal,
+  type WithdrawalArgs,
+} from "../accounts";
+import {
+  getApplyChangeInstruction,
+  getApproveWithdrawalInstruction,
+  getCancelChangeInstruction,
+  getChangeWithdrawalWaitInstructionAsync,
+  getCreateVaultInstructionAsync,
+  getDepositInstructionAsync,
+  getProposeGuardianChangeInstructionAsync,
+  getReleaseWithdrawalInstruction,
+  getRequestWithdrawalInstructionAsync,
+  getStopWithdrawalInstruction,
   parseApplyChangeInstruction,
   parseApproveWithdrawalInstruction,
   parseCancelChangeInstruction,
@@ -27,6 +63,12 @@ import {
   parseReleaseWithdrawalInstruction,
   parseRequestWithdrawalInstruction,
   parseStopWithdrawalInstruction,
+  type ApplyChangeInput,
+  type ApproveWithdrawalInput,
+  type CancelChangeInput,
+  type ChangeWithdrawalWaitAsyncInput,
+  type CreateVaultAsyncInput,
+  type DepositAsyncInput,
   type ParsedApplyChangeInstruction,
   type ParsedApproveWithdrawalInstruction,
   type ParsedCancelChangeInstruction,
@@ -37,7 +79,12 @@ import {
   type ParsedReleaseWithdrawalInstruction,
   type ParsedRequestWithdrawalInstruction,
   type ParsedStopWithdrawalInstruction,
+  type ProposeGuardianChangeAsyncInput,
+  type ReleaseWithdrawalInput,
+  type RequestWithdrawalAsyncInput,
+  type StopWithdrawalInput,
 } from "../instructions";
+import { findVaultPda } from "../pdas";
 
 export const PAUSE_PROGRAM_ADDRESS =
   "BUFdujWydbi7UA13x1EnBavq7iwNjaxip5Csuv9fjEDz" as Address<"BUFdujWydbi7UA13x1EnBavq7iwNjaxip5Csuv9fjEDz">;
@@ -48,16 +95,16 @@ export enum PauseAccount {
 }
 
 export function identifyPauseAccount(
-  account: { data: ReadonlyUint8Array } | ReadonlyUint8Array,
+  account: { data: ReadonlyUint8Array } | ReadonlyUint8Array
 ): PauseAccount {
   const data = "data" in account ? account.data : account;
   if (
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([211, 8, 232, 43, 2, 152, 117, 119]),
+        new Uint8Array([211, 8, 232, 43, 2, 152, 117, 119])
       ),
-      0,
+      0
     )
   ) {
     return PauseAccount.Vault;
@@ -66,15 +113,148 @@ export function identifyPauseAccount(
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([10, 45, 211, 182, 129, 235, 90, 82]),
+        new Uint8Array([10, 45, 211, 182, 129, 235, 90, 82])
       ),
-      0,
+      0
     )
   ) {
     return PauseAccount.Withdrawal;
   }
+  throw new SolanaError(
+    SOLANA_ERROR__PROGRAM_CLIENTS__FAILED_TO_IDENTIFY_ACCOUNT,
+    { accountData: data, programName: "pause" }
+  );
+}
+
+export enum PauseEvent {
+  ChangeApplied,
+  ChangeCancelled,
+  ChangeProposed,
+  Deposited,
+  VaultCreated,
+  WithdrawalApproved,
+  WithdrawalReleased,
+  WithdrawalRequested,
+  WithdrawalStopped,
+  WithdrawalWaitChanged,
+}
+
+export function identifyPauseEvent(
+  event: { data: ReadonlyUint8Array } | ReadonlyUint8Array
+): PauseEvent {
+  const data = "data" in event ? event.data : event;
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([226, 1, 224, 100, 192, 110, 58, 24])
+      ),
+      0
+    )
+  ) {
+    return PauseEvent.ChangeApplied;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([139, 179, 97, 81, 214, 21, 119, 93])
+      ),
+      0
+    )
+  ) {
+    return PauseEvent.ChangeCancelled;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([170, 10, 10, 8, 244, 196, 146, 151])
+      ),
+      0
+    )
+  ) {
+    return PauseEvent.ChangeProposed;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([111, 141, 26, 45, 161, 35, 100, 57])
+      ),
+      0
+    )
+  ) {
+    return PauseEvent.Deposited;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([117, 25, 120, 254, 75, 236, 78, 115])
+      ),
+      0
+    )
+  ) {
+    return PauseEvent.VaultCreated;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([118, 139, 166, 230, 81, 241, 215, 154])
+      ),
+      0
+    )
+  ) {
+    return PauseEvent.WithdrawalApproved;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([62, 109, 29, 142, 148, 189, 159, 160])
+      ),
+      0
+    )
+  ) {
+    return PauseEvent.WithdrawalReleased;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([75, 207, 21, 12, 160, 102, 150, 55])
+      ),
+      0
+    )
+  ) {
+    return PauseEvent.WithdrawalRequested;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([139, 158, 129, 134, 140, 174, 28, 24])
+      ),
+      0
+    )
+  ) {
+    return PauseEvent.WithdrawalStopped;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([130, 61, 114, 52, 31, 219, 169, 32])
+      ),
+      0
+    )
+  ) {
+    return PauseEvent.WithdrawalWaitChanged;
+  }
   throw new Error(
-    "The provided account could not be identified as a pause account.",
+    "The provided event could not be identified as a pause event."
   );
 }
 
@@ -92,16 +272,16 @@ export enum PauseInstruction {
 }
 
 export function identifyPauseInstruction(
-  instruction: { data: ReadonlyUint8Array } | ReadonlyUint8Array,
+  instruction: { data: ReadonlyUint8Array } | ReadonlyUint8Array
 ): PauseInstruction {
   const data = "data" in instruction ? instruction.data : instruction;
   if (
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([248, 177, 9, 41, 50, 98, 255, 50]),
+        new Uint8Array([248, 177, 9, 41, 50, 98, 255, 50])
       ),
-      0,
+      0
     )
   ) {
     return PauseInstruction.ApplyChange;
@@ -110,9 +290,9 @@ export function identifyPauseInstruction(
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([75, 48, 146, 122, 201, 158, 210, 123]),
+        new Uint8Array([75, 48, 146, 122, 201, 158, 210, 123])
       ),
-      0,
+      0
     )
   ) {
     return PauseInstruction.ApproveWithdrawal;
@@ -121,9 +301,9 @@ export function identifyPauseInstruction(
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([100, 30, 4, 148, 3, 244, 243, 168]),
+        new Uint8Array([100, 30, 4, 148, 3, 244, 243, 168])
       ),
-      0,
+      0
     )
   ) {
     return PauseInstruction.CancelChange;
@@ -132,9 +312,9 @@ export function identifyPauseInstruction(
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([23, 42, 9, 73, 134, 157, 3, 10]),
+        new Uint8Array([23, 42, 9, 73, 134, 157, 3, 10])
       ),
-      0,
+      0
     )
   ) {
     return PauseInstruction.ChangeWithdrawalWait;
@@ -143,9 +323,9 @@ export function identifyPauseInstruction(
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([29, 237, 247, 208, 193, 82, 54, 135]),
+        new Uint8Array([29, 237, 247, 208, 193, 82, 54, 135])
       ),
-      0,
+      0
     )
   ) {
     return PauseInstruction.CreateVault;
@@ -154,9 +334,9 @@ export function identifyPauseInstruction(
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([242, 35, 198, 137, 82, 225, 242, 182]),
+        new Uint8Array([242, 35, 198, 137, 82, 225, 242, 182])
       ),
-      0,
+      0
     )
   ) {
     return PauseInstruction.Deposit;
@@ -165,9 +345,9 @@ export function identifyPauseInstruction(
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([236, 28, 48, 25, 179, 178, 100, 230]),
+        new Uint8Array([236, 28, 48, 25, 179, 178, 100, 230])
       ),
-      0,
+      0
     )
   ) {
     return PauseInstruction.ProposeGuardianChange;
@@ -176,9 +356,9 @@ export function identifyPauseInstruction(
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([165, 252, 155, 233, 0, 47, 81, 143]),
+        new Uint8Array([165, 252, 155, 233, 0, 47, 81, 143])
       ),
-      0,
+      0
     )
   ) {
     return PauseInstruction.ReleaseWithdrawal;
@@ -187,9 +367,9 @@ export function identifyPauseInstruction(
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([251, 85, 121, 205, 56, 201, 12, 177]),
+        new Uint8Array([251, 85, 121, 205, 56, 201, 12, 177])
       ),
-      0,
+      0
     )
   ) {
     return PauseInstruction.RequestWithdrawal;
@@ -198,15 +378,16 @@ export function identifyPauseInstruction(
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([127, 225, 4, 156, 193, 224, 221, 199]),
+        new Uint8Array([127, 225, 4, 156, 193, 224, 221, 199])
       ),
-      0,
+      0
     )
   ) {
     return PauseInstruction.StopWithdrawal;
   }
-  throw new Error(
-    "The provided instruction could not be identified as a pause instruction.",
+  throw new SolanaError(
+    SOLANA_ERROR__PROGRAM_CLIENTS__FAILED_TO_IDENTIFY_INSTRUCTION,
+    { instructionData: data, programName: "pause" }
   );
 }
 
@@ -245,7 +426,7 @@ export type ParsedPauseInstruction<
     } & ParsedStopWithdrawalInstruction<TProgram>);
 
 export function parsePauseInstruction<TProgram extends string>(
-  instruction: Instruction<TProgram> & InstructionWithData<ReadonlyUint8Array>,
+  instruction: Instruction<TProgram> & InstructionWithData<ReadonlyUint8Array>
 ): ParsedPauseInstruction<TProgram> {
   const instructionType = identifyPauseInstruction(instruction);
   switch (instructionType) {
@@ -320,8 +501,192 @@ export function parsePauseInstruction<TProgram extends string>(
       };
     }
     default:
-      throw new Error(
-        `Unrecognized instruction type: ${instructionType as string}`,
+      throw new SolanaError(
+        SOLANA_ERROR__PROGRAM_CLIENTS__UNRECOGNIZED_INSTRUCTION_TYPE,
+        { instructionType: instructionType as string, programName: "pause" }
       );
   }
+}
+
+export type PausePlugin = {
+  accounts: PausePluginAccounts;
+  instructions: PausePluginInstructions;
+  pdas: PausePluginPdas;
+  identifyAccount: typeof identifyPauseAccount;
+  identifyInstruction: typeof identifyPauseInstruction;
+  parseInstruction: typeof parsePauseInstruction;
+};
+
+export type PausePluginAccounts = {
+  vault: ReturnType<typeof getVaultCodec> &
+    SelfFetchFunctions<VaultArgs, Vault>;
+  withdrawal: ReturnType<typeof getWithdrawalCodec> &
+    SelfFetchFunctions<WithdrawalArgs, Withdrawal>;
+};
+
+export type PausePluginInstructions = {
+  applyChange: (
+    input: ApplyChangeInput,
+    config?: { programAddress?: Address | HasAddress }
+  ) => ReturnType<typeof getApplyChangeInstruction> & SelfPlanAndSendFunctions;
+  approveWithdrawal: (
+    input: ApproveWithdrawalInput,
+    config?: { programAddress?: Address | HasAddress }
+  ) => ReturnType<typeof getApproveWithdrawalInstruction> &
+    SelfPlanAndSendFunctions;
+  cancelChange: (
+    input: CancelChangeInput,
+    config?: { programAddress?: Address | HasAddress }
+  ) => ReturnType<typeof getCancelChangeInstruction> & SelfPlanAndSendFunctions;
+  changeWithdrawalWait: (
+    input: ChangeWithdrawalWaitAsyncInput,
+    config?: { programAddress?: Address | HasAddress }
+  ) => ReturnType<typeof getChangeWithdrawalWaitInstructionAsync> &
+    SelfPlanAndSendFunctions;
+  createVault: (
+    input: CreateVaultAsyncInput,
+    config?: { programAddress?: Address | HasAddress }
+  ) => ReturnType<typeof getCreateVaultInstructionAsync> &
+    SelfPlanAndSendFunctions;
+  deposit: (
+    input: DepositAsyncInput,
+    config?: { programAddress?: Address | HasAddress }
+  ) => ReturnType<typeof getDepositInstructionAsync> & SelfPlanAndSendFunctions;
+  proposeGuardianChange: (
+    input: ProposeGuardianChangeAsyncInput,
+    config?: { programAddress?: Address | HasAddress }
+  ) => ReturnType<typeof getProposeGuardianChangeInstructionAsync> &
+    SelfPlanAndSendFunctions;
+  releaseWithdrawal: (
+    input: ReleaseWithdrawalInput,
+    config?: { programAddress?: Address | HasAddress }
+  ) => ReturnType<typeof getReleaseWithdrawalInstruction> &
+    SelfPlanAndSendFunctions;
+  requestWithdrawal: (
+    input: RequestWithdrawalAsyncInput,
+    config?: { programAddress?: Address | HasAddress }
+  ) => ReturnType<typeof getRequestWithdrawalInstructionAsync> &
+    SelfPlanAndSendFunctions;
+  stopWithdrawal: (
+    input: StopWithdrawalInput,
+    config?: { programAddress?: Address | HasAddress }
+  ) => ReturnType<typeof getStopWithdrawalInstruction> &
+    SelfPlanAndSendFunctions;
+};
+
+export type PausePluginPdas = { vault: typeof findVaultPda };
+
+export type PausePluginRequirements = ClientWithRpc<
+  GetAccountInfoApi & GetMultipleAccountsApi
+> &
+  ClientWithTransactionPlanning &
+  ClientWithTransactionSending;
+
+export function pauseProgram(
+  config: { programAddress?: Address | HasAddress } = {}
+) {
+  return <T extends PausePluginRequirements>(
+    client: T
+  ): ExtendedClient<T, { pause: PausePlugin }> => {
+    return extendClient(client, {
+      pause: <PausePlugin>{
+        accounts: {
+          vault: addSelfFetchFunctions(client, getVaultCodec()),
+          withdrawal: addSelfFetchFunctions(client, getWithdrawalCodec()),
+        },
+        instructions: {
+          applyChange: (input, instructionConfig) =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getApplyChangeInstruction(input, {
+                programAddress:
+                  instructionConfig?.programAddress ?? config.programAddress,
+              })
+            ),
+          approveWithdrawal: (input, instructionConfig) =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getApproveWithdrawalInstruction(input, {
+                programAddress:
+                  instructionConfig?.programAddress ?? config.programAddress,
+              })
+            ),
+          cancelChange: (input, instructionConfig) =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getCancelChangeInstruction(input, {
+                programAddress:
+                  instructionConfig?.programAddress ?? config.programAddress,
+              })
+            ),
+          changeWithdrawalWait: (input, instructionConfig) =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getChangeWithdrawalWaitInstructionAsync(input, {
+                programAddress:
+                  instructionConfig?.programAddress ?? config.programAddress,
+              })
+            ),
+          createVault: (input, instructionConfig) =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getCreateVaultInstructionAsync(input, {
+                programAddress:
+                  instructionConfig?.programAddress ?? config.programAddress,
+              })
+            ),
+          deposit: (input, instructionConfig) =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getDepositInstructionAsync(input, {
+                programAddress:
+                  instructionConfig?.programAddress ?? config.programAddress,
+              })
+            ),
+          proposeGuardianChange: (input, instructionConfig) =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getProposeGuardianChangeInstructionAsync(input, {
+                programAddress:
+                  instructionConfig?.programAddress ?? config.programAddress,
+              })
+            ),
+          releaseWithdrawal: (input, instructionConfig) =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getReleaseWithdrawalInstruction(input, {
+                programAddress:
+                  instructionConfig?.programAddress ?? config.programAddress,
+              })
+            ),
+          requestWithdrawal: (input, instructionConfig) =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getRequestWithdrawalInstructionAsync(input, {
+                programAddress:
+                  instructionConfig?.programAddress ?? config.programAddress,
+              })
+            ),
+          stopWithdrawal: (input, instructionConfig) =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getStopWithdrawalInstruction(input, {
+                programAddress:
+                  instructionConfig?.programAddress ?? config.programAddress,
+              })
+            ),
+        },
+        pdas: {
+          vault: (seeds, pdaConfig) =>
+            findVaultPda(seeds, {
+              programAddress:
+                pdaConfig?.programAddress ?? config.programAddress,
+            }),
+        },
+        identifyAccount: identifyPauseAccount,
+        identifyInstruction: identifyPauseInstruction,
+        parseInstruction: parsePauseInstruction,
+      },
+    });
+  };
 }

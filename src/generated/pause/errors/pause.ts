@@ -9,6 +9,7 @@
 import {
   isProgramError,
   type Address,
+  type HasAddress,
   type SOLANA_ERROR__INSTRUCTION_ERROR__CUSTOM,
   type SolanaError,
 } from "@solana/kit";
@@ -84,7 +85,7 @@ export type PauseError =
   | typeof PAUSE_ERROR__WRONG_RECIPIENT;
 
 let pauseErrorMessages: Record<PauseError, string> | undefined;
-if (process.env.NODE_ENV !== "production") {
+if (process.env["NODE_ENV"] !== "production") {
   pauseErrorMessages = {
     [PAUSE_ERROR__AMOUNT_BELOW_MINIMUM]: `The amount is below the smallest amount Solana lets a new address hold.`,
     [PAUSE_ERROR__AMOUNT_IS_ZERO]: `The amount must be more than 0.`,
@@ -112,7 +113,7 @@ if (process.env.NODE_ENV !== "production") {
 }
 
 export function getPauseErrorMessage(code: PauseError): string {
-  if (process.env.NODE_ENV !== "production") {
+  if (process.env["NODE_ENV"] !== "production") {
     return (pauseErrorMessages as Record<PauseError, string>)[code];
   }
 
@@ -125,12 +126,18 @@ export function isPauseError<TProgramErrorCode extends PauseError>(
     instructions: Record<number, { programAddress: Address }>;
   },
   code?: TProgramErrorCode,
+  config: { programAddress?: Address | HasAddress } = {}
 ): error is SolanaError<typeof SOLANA_ERROR__INSTRUCTION_ERROR__CUSTOM> &
   Readonly<{ context: Readonly<{ code: TProgramErrorCode }> }> {
+  const programAddressInput = config.programAddress ?? PAUSE_PROGRAM_ADDRESS;
+  const programAddress =
+    typeof programAddressInput === "string"
+      ? programAddressInput
+      : programAddressInput.address;
   return isProgramError<TProgramErrorCode>(
     error,
     transactionMessage,
-    PAUSE_PROGRAM_ADDRESS,
-    code,
+    programAddress,
+    code
   );
 }

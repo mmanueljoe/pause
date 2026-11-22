@@ -20,7 +20,8 @@ The repo is set up and the tooling works. All program actions in the requirement
 | ---------------- | ------------------------------------------------------------------- |
 | Solana program   | Rust, Anchor 1.1.2, tested with LiteSVM                             |
 | Program client   | TypeScript, generated from the program by Codama (`@solana/kit`)    |
-| Website          | React 19, Vite, TypeScript, Tailwind CSS v4, `@solana/react-hooks`  |
+| Website          | React 19, Vite, TypeScript, Tailwind CSS v4, React Router           |
+| Solana in the UI | `@solana/kit` 8, `@solana/kit-plugin-wallet`, `@solana/react` + SWR |
 | Wallets          | Any Wallet Standard wallet, such as Phantom or Solflare             |
 | Backend (coming) | Supabase: guardian emails, alerts, automatic release after the wait |
 
@@ -35,8 +36,10 @@ The repo is set up and the tooling works. All program actions in the requirement
 │       ├── state/              Account structs (Vault, Withdrawal)
 │       └── tests/              LiteSVM tests: who is refused, and when
 ├── src/
-│   ├── App.tsx                 Website
-│   ├── providers.tsx           Solana connection and wallets
+│   ├── App.tsx                 Pages and URLs
+│   ├── components/ui/          Shared components (from Figma)
+│   ├── lib/pause/              Reading and sending to the Pause program
+│   ├── lib/solana/client.ts    Solana connection and wallets
 │   └── generated/pause/        Client generated from the program (do not edit by hand)
 ├── docs/requirements.md        Product requirements (source of truth)
 ├── design/                     Design workspace notes (Figma)
@@ -147,6 +150,7 @@ The first deploy reserved 600,000 bytes (`--max-len`), about twice the program's
 - Program: `stop_withdrawal`, `approve_withdrawal`, `release_withdrawal` (US-8, US-8a, US-8b, US-9, US-18).
 - Program: `change_withdrawal_wait`, `propose_guardian_change`, `apply_change`, `cancel_change` (US-10, US-11, US-16, US-17, US-19).
 - Program deployed to devnet (demo build).
+- Website foundation: design tokens, shared components, one page per screen, live vault data, role detection (FR-2). Moved from `@solana/react-hooks` to the maintained Kit 8 wallet stack.
 - _Each feature is added here as it lands._
 
 ## License

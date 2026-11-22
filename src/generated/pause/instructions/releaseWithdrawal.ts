@@ -14,6 +14,8 @@ import {
   getBytesEncoder,
   getStructDecoder,
   getStructEncoder,
+  SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
+  SolanaError,
   transformEncoder,
   type AccountMeta,
   type Address,
@@ -27,16 +29,21 @@ import {
   type ReadonlyUint8Array,
   type WritableAccount,
 } from "@solana/kit";
+import {
+  getAccountMetaFactory,
+  type InstructionAccountInput,
+  type InstructionAccountInputAddress,
+  type ResolvedInstructionAccount,
+  type ResolvedInstructionAccountMeta,
+} from "@solana/program-client-core";
 import { PAUSE_PROGRAM_ADDRESS } from "../programs";
-import { getAccountMetaFactory, type ResolvedAccount } from "../shared";
 
-export const RELEASE_WITHDRAWAL_DISCRIMINATOR = new Uint8Array([
-  165, 252, 155, 233, 0, 47, 81, 143,
-]);
+export const RELEASE_WITHDRAWAL_DISCRIMINATOR: ReadonlyUint8Array =
+  new Uint8Array([165, 252, 155, 233, 0, 47, 81, 143]);
 
-export function getReleaseWithdrawalDiscriminatorBytes() {
+export function getReleaseWithdrawalDiscriminatorBytes(): ReadonlyUint8Array {
   return fixEncoderSize(getBytesEncoder(), 8).encode(
-    RELEASE_WITHDRAWAL_DISCRIMINATOR,
+    RELEASE_WITHDRAWAL_DISCRIMINATOR
   );
 }
 
@@ -80,7 +87,7 @@ export type ReleaseWithdrawalInstructionDataArgs = {};
 export function getReleaseWithdrawalInstructionDataEncoder(): FixedSizeEncoder<ReleaseWithdrawalInstructionDataArgs> {
   return transformEncoder(
     getStructEncoder([["discriminator", fixEncoderSize(getBytesEncoder(), 8)]]),
-    (value) => ({ ...value, discriminator: RELEASE_WITHDRAWAL_DISCRIMINATOR }),
+    (value) => ({ ...value, discriminator: RELEASE_WITHDRAWAL_DISCRIMINATOR })
   );
 }
 
@@ -96,30 +103,31 @@ export function getReleaseWithdrawalInstructionDataCodec(): FixedSizeCodec<
 > {
   return combineCodec(
     getReleaseWithdrawalInstructionDataEncoder(),
-    getReleaseWithdrawalInstructionDataDecoder(),
+    getReleaseWithdrawalInstructionDataDecoder()
   );
 }
 
 export type ReleaseWithdrawalInput<
-  TAccountVault extends string = string,
-  TAccountWithdrawal extends string = string,
-  TAccountRecipient extends string = string,
-  TAccountEventAuthority extends string = string,
-  TAccountProgram extends string = string,
+  TAccountVault extends InstructionAccountInput = InstructionAccountInput,
+  TAccountWithdrawal extends InstructionAccountInput = InstructionAccountInput,
+  TAccountRecipient extends InstructionAccountInput = InstructionAccountInput,
+  TAccountEventAuthority extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountProgram extends InstructionAccountInput = InstructionAccountInput,
 > = {
-  vault: Address<TAccountVault>;
-  withdrawal: Address<TAccountWithdrawal>;
-  recipient: Address<TAccountRecipient>;
-  eventAuthority: Address<TAccountEventAuthority>;
-  program: Address<TAccountProgram>;
+  vault: TAccountVault;
+  withdrawal: TAccountWithdrawal;
+  recipient: TAccountRecipient;
+  eventAuthority: TAccountEventAuthority;
+  program: TAccountProgram;
 };
 
 export function getReleaseWithdrawalInstruction<
-  TAccountVault extends string,
-  TAccountWithdrawal extends string,
-  TAccountRecipient extends string,
-  TAccountEventAuthority extends string,
-  TAccountProgram extends string,
+  TAccountVault extends InstructionAccountInput,
+  TAccountWithdrawal extends InstructionAccountInput,
+  TAccountRecipient extends InstructionAccountInput,
+  TAccountEventAuthority extends InstructionAccountInput,
+  TAccountProgram extends InstructionAccountInput,
   TProgramAddress extends Address = typeof PAUSE_PROGRAM_ADDRESS,
 >(
   input: ReleaseWithdrawalInput<
@@ -129,49 +137,103 @@ export function getReleaseWithdrawalInstruction<
     TAccountEventAuthority,
     TAccountProgram
   >,
-  config?: { programAddress?: TProgramAddress },
+  config?: {
+    programAddress?: TProgramAddress | { readonly address: TProgramAddress };
+  }
 ): ReleaseWithdrawalInstruction<
   TProgramAddress,
-  TAccountVault,
-  TAccountWithdrawal,
-  TAccountRecipient,
-  TAccountEventAuthority,
-  TAccountProgram
+  ResolvedInstructionAccountMeta<
+    TAccountVault,
+    InstructionAccountInputAddress<TAccountVault>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountWithdrawal,
+    InstructionAccountInputAddress<TAccountWithdrawal>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountRecipient,
+    InstructionAccountInputAddress<TAccountRecipient>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountEventAuthority,
+    InstructionAccountInputAddress<TAccountEventAuthority>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountProgram,
+    InstructionAccountInputAddress<TAccountProgram>
+  >
 > {
   // Program address.
-  const programAddress = config?.programAddress ?? PAUSE_PROGRAM_ADDRESS;
+  const programAddressInput = config?.programAddress ?? PAUSE_PROGRAM_ADDRESS;
+  const programAddress =
+    typeof programAddressInput === "string"
+      ? programAddressInput
+      : programAddressInput.address;
+
+  // Account meta helper.
+  const getAccountMeta = getAccountMetaFactory(programAddress, "programId");
 
   // Original accounts.
   const originalAccounts = {
-    vault: { value: input.vault ?? null, isWritable: true },
-    withdrawal: { value: input.withdrawal ?? null, isWritable: true },
-    recipient: { value: input.recipient ?? null, isWritable: true },
-    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
-    program: { value: input.program ?? null, isWritable: false },
+    vault: { value: input.vault ?? null, isSigner: false, isWritable: true },
+    withdrawal: {
+      value: input.withdrawal ?? null,
+      isSigner: false,
+      isWritable: true,
+    },
+    recipient: {
+      value: input.recipient ?? null,
+      isSigner: false,
+      isWritable: true,
+    },
+    eventAuthority: {
+      value: input.eventAuthority ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    program: {
+      value: input.program ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
-    ResolvedAccount
+    ResolvedInstructionAccount
   >;
 
-  const getAccountMeta = getAccountMetaFactory(programAddress, "programId");
   return Object.freeze({
     accounts: [
-      getAccountMeta(accounts.vault),
-      getAccountMeta(accounts.withdrawal),
-      getAccountMeta(accounts.recipient),
-      getAccountMeta(accounts.eventAuthority),
-      getAccountMeta(accounts.program),
+      getAccountMeta("vault", accounts.vault),
+      getAccountMeta("withdrawal", accounts.withdrawal),
+      getAccountMeta("recipient", accounts.recipient),
+      getAccountMeta("eventAuthority", accounts.eventAuthority),
+      getAccountMeta("program", accounts.program),
     ],
     data: getReleaseWithdrawalInstructionDataEncoder().encode({}),
     programAddress,
   } as ReleaseWithdrawalInstruction<
     TProgramAddress,
-    TAccountVault,
-    TAccountWithdrawal,
-    TAccountRecipient,
-    TAccountEventAuthority,
-    TAccountProgram
+    ResolvedInstructionAccountMeta<
+      TAccountVault,
+      InstructionAccountInputAddress<TAccountVault>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountWithdrawal,
+      InstructionAccountInputAddress<TAccountWithdrawal>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountRecipient,
+      InstructionAccountInputAddress<TAccountRecipient>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountEventAuthority,
+      InstructionAccountInputAddress<TAccountEventAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountProgram,
+      InstructionAccountInputAddress<TAccountProgram>
+    >
   >);
 }
 
@@ -196,11 +258,16 @@ export function parseReleaseWithdrawalInstruction<
 >(
   instruction: Instruction<TProgram> &
     InstructionWithAccounts<TAccountMetas> &
-    InstructionWithData<ReadonlyUint8Array>,
+    InstructionWithData<ReadonlyUint8Array>
 ): ParsedReleaseWithdrawalInstruction<TProgram, TAccountMetas> {
   if (instruction.accounts.length < 5) {
-    // TODO: Coded error.
-    throw new Error("Not enough accounts");
+    throw new SolanaError(
+      SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
+      {
+        actualAccountMetas: instruction.accounts.length,
+        expectedAccountMetas: 5,
+      }
+    );
   }
   let accountIndex = 0;
   const getNextAccount = () => {

@@ -24,6 +24,7 @@ import {
   type Encoder,
   type GetDiscriminatedUnionVariant,
   type GetDiscriminatedUnionVariantContent,
+  type HasAddress,
   type Option,
   type OptionOrNullable,
 } from "@solana/kit";
@@ -33,7 +34,7 @@ export type ChangeKind =
   | { __kind: "WithdrawalWait"; newWaitSecs: bigint };
 
 export type ChangeKindArgs =
-  | { __kind: "Guardian"; newGuardian: OptionOrNullable<Address> }
+  | { __kind: "Guardian"; newGuardian: OptionOrNullable<Address | HasAddress> }
   | { __kind: "WithdrawalWait"; newWaitSecs: number | bigint };
 
 export function getChangeKindEncoder(): Encoder<ChangeKindArgs> {
@@ -71,7 +72,7 @@ export function changeKind(
     ChangeKindArgs,
     "__kind",
     "Guardian"
-  >,
+  >
 ): GetDiscriminatedUnionVariant<ChangeKindArgs, "__kind", "Guardian">;
 export function changeKind(
   kind: "WithdrawalWait",
@@ -79,11 +80,11 @@ export function changeKind(
     ChangeKindArgs,
     "__kind",
     "WithdrawalWait"
-  >,
+  >
 ): GetDiscriminatedUnionVariant<ChangeKindArgs, "__kind", "WithdrawalWait">;
 export function changeKind<K extends ChangeKindArgs["__kind"], Data>(
   kind: K,
-  data?: Data,
+  data?: Data
 ) {
   return Array.isArray(data)
     ? { __kind: kind, fields: data }
@@ -92,7 +93,7 @@ export function changeKind<K extends ChangeKindArgs["__kind"], Data>(
 
 export function isChangeKind<K extends ChangeKind["__kind"]>(
   kind: K,
-  value: ChangeKind,
+  value: ChangeKind
 ): value is ChangeKind & { __kind: K } {
   return value.__kind === kind;
 }

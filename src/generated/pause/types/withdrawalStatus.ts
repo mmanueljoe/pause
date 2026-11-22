@@ -24,6 +24,7 @@ import {
   type Encoder,
   type GetDiscriminatedUnionVariant,
   type GetDiscriminatedUnionVariantContent,
+  type HasAddress,
 } from "@solana/kit";
 
 /**
@@ -38,7 +39,7 @@ export type WithdrawalStatus =
 
 export type WithdrawalStatusArgs =
   | { __kind: "Waiting" }
-  | { __kind: "Stopped"; by: Address; at: number | bigint }
+  | { __kind: "Stopped"; by: Address | HasAddress; at: number | bigint }
   | { __kind: "Released"; at: number | bigint }
   | { __kind: "ApprovedEarly"; at: number | bigint };
 
@@ -78,13 +79,13 @@ export function getWithdrawalStatusCodec(): Codec<
 > {
   return combineCodec(
     getWithdrawalStatusEncoder(),
-    getWithdrawalStatusDecoder(),
+    getWithdrawalStatusDecoder()
   );
 }
 
 // Data Enum Helpers.
 export function withdrawalStatus(
-  kind: "Waiting",
+  kind: "Waiting"
 ): GetDiscriminatedUnionVariant<WithdrawalStatusArgs, "__kind", "Waiting">;
 export function withdrawalStatus(
   kind: "Stopped",
@@ -92,7 +93,7 @@ export function withdrawalStatus(
     WithdrawalStatusArgs,
     "__kind",
     "Stopped"
-  >,
+  >
 ): GetDiscriminatedUnionVariant<WithdrawalStatusArgs, "__kind", "Stopped">;
 export function withdrawalStatus(
   kind: "Released",
@@ -100,7 +101,7 @@ export function withdrawalStatus(
     WithdrawalStatusArgs,
     "__kind",
     "Released"
-  >,
+  >
 ): GetDiscriminatedUnionVariant<WithdrawalStatusArgs, "__kind", "Released">;
 export function withdrawalStatus(
   kind: "ApprovedEarly",
@@ -108,7 +109,7 @@ export function withdrawalStatus(
     WithdrawalStatusArgs,
     "__kind",
     "ApprovedEarly"
-  >,
+  >
 ): GetDiscriminatedUnionVariant<
   WithdrawalStatusArgs,
   "__kind",
@@ -125,7 +126,7 @@ export function withdrawalStatus<
 
 export function isWithdrawalStatus<K extends WithdrawalStatus["__kind"]>(
   kind: K,
-  value: WithdrawalStatus,
+  value: WithdrawalStatus
 ): value is WithdrawalStatus & { __kind: K } {
   return value.__kind === kind;
 }
