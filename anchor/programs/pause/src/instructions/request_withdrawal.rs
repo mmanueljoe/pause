@@ -46,6 +46,12 @@ pub fn handle_request_withdrawal(
     amount_lamports: u64,
 ) -> Result<()> {
     require!(recipient != Pubkey::default(), PauseError::RecipientIsEmpty);
+    // Paying the vault (or this record) would need the same account twice in
+    // the release, which Anchor refuses, so it could never be released.
+    require!(
+        recipient != ctx.accounts.vault.key() && recipient != ctx.accounts.withdrawal.key(),
+        PauseError::RecipientNotAllowed
+    );
     require!(amount_lamports > 0, PauseError::AmountIsZero);
     // A brand-new address must receive at least this much, or the release
     // could never go through.

@@ -36,6 +36,20 @@ export const PAUSE_ERROR__NOT_ENOUGH_IN_VAULT = 0x1778; // 6008
 export const PAUSE_ERROR__RECIPIENT_IS_EMPTY = 0x1779; // 6009
 /** MathOverflow: A number got too large. */
 export const PAUSE_ERROR__MATH_OVERFLOW = 0x177a; // 6010
+/** NotOwnerOrGuardian: Only the owner or the guardian can do this. */
+export const PAUSE_ERROR__NOT_OWNER_OR_GUARDIAN = 0x177b; // 6011
+/** NotGuardian: Only the guardian can do this. */
+export const PAUSE_ERROR__NOT_GUARDIAN = 0x177c; // 6012
+/** NotWaiting: This withdrawal isn't waiting any more. */
+export const PAUSE_ERROR__NOT_WAITING = 0x177d; // 6013
+/** TooEarly: The wait hasn't ended yet. */
+export const PAUSE_ERROR__TOO_EARLY = 0x177e; // 6014
+/** WrongRecipient: This isn't the recipient named in the withdrawal. */
+export const PAUSE_ERROR__WRONG_RECIPIENT = 0x177f; // 6015
+/** RecipientNotAllowed: The recipient can't be the vault or the withdrawal's own record. */
+export const PAUSE_ERROR__RECIPIENT_NOT_ALLOWED = 0x1780; // 6016
+/** VaultInvariantBroken: The vault would hold less than it owes to waiting withdrawals. */
+export const PAUSE_ERROR__VAULT_INVARIANT_BROKEN = 0x1781; // 6017
 
 export type PauseError =
   | typeof PAUSE_ERROR__AMOUNT_BELOW_MINIMUM
@@ -46,9 +60,16 @@ export type PauseError =
   | typeof PAUSE_ERROR__GUARDIAN_WAIT_TOO_SHORT
   | typeof PAUSE_ERROR__MATH_OVERFLOW
   | typeof PAUSE_ERROR__NOT_ENOUGH_IN_VAULT
+  | typeof PAUSE_ERROR__NOT_GUARDIAN
+  | typeof PAUSE_ERROR__NOT_OWNER_OR_GUARDIAN
+  | typeof PAUSE_ERROR__NOT_WAITING
   | typeof PAUSE_ERROR__RECIPIENT_IS_EMPTY
+  | typeof PAUSE_ERROR__RECIPIENT_NOT_ALLOWED
+  | typeof PAUSE_ERROR__TOO_EARLY
+  | typeof PAUSE_ERROR__VAULT_INVARIANT_BROKEN
   | typeof PAUSE_ERROR__WITHDRAWAL_WAIT_TOO_LONG
-  | typeof PAUSE_ERROR__WITHDRAWAL_WAIT_TOO_SHORT;
+  | typeof PAUSE_ERROR__WITHDRAWAL_WAIT_TOO_SHORT
+  | typeof PAUSE_ERROR__WRONG_RECIPIENT;
 
 let pauseErrorMessages: Record<PauseError, string> | undefined;
 if (process.env.NODE_ENV !== "production") {
@@ -61,9 +82,16 @@ if (process.env.NODE_ENV !== "production") {
     [PAUSE_ERROR__GUARDIAN_WAIT_TOO_SHORT]: `The guardian change wait is shorter than the minimum.`,
     [PAUSE_ERROR__MATH_OVERFLOW]: `A number got too large.`,
     [PAUSE_ERROR__NOT_ENOUGH_IN_VAULT]: `The vault doesn't have enough SOL that isn't already waiting to leave.`,
+    [PAUSE_ERROR__NOT_GUARDIAN]: `Only the guardian can do this.`,
+    [PAUSE_ERROR__NOT_OWNER_OR_GUARDIAN]: `Only the owner or the guardian can do this.`,
+    [PAUSE_ERROR__NOT_WAITING]: `This withdrawal isn't waiting any more.`,
     [PAUSE_ERROR__RECIPIENT_IS_EMPTY]: `The recipient address is empty.`,
+    [PAUSE_ERROR__RECIPIENT_NOT_ALLOWED]: `The recipient can't be the vault or the withdrawal's own record.`,
+    [PAUSE_ERROR__TOO_EARLY]: `The wait hasn't ended yet.`,
+    [PAUSE_ERROR__VAULT_INVARIANT_BROKEN]: `The vault would hold less than it owes to waiting withdrawals.`,
     [PAUSE_ERROR__WITHDRAWAL_WAIT_TOO_LONG]: `The withdrawal wait is longer than 7 days.`,
     [PAUSE_ERROR__WITHDRAWAL_WAIT_TOO_SHORT]: `The withdrawal wait is shorter than the minimum.`,
+    [PAUSE_ERROR__WRONG_RECIPIENT]: `This isn't the recipient named in the withdrawal.`,
   };
 }
 

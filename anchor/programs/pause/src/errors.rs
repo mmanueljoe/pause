@@ -27,4 +27,18 @@ pub enum PauseError {
     RecipientIsEmpty,
     #[msg("A number got too large.")]
     MathOverflow,
+    #[msg("Only the owner or the guardian can do this.")]
+    NotOwnerOrGuardian,
+    #[msg("Only the guardian can do this.")]
+    NotGuardian,
+    #[msg("This withdrawal isn't waiting any more.")]
+    NotWaiting,
+    #[msg("The wait hasn't ended yet.")]
+    TooEarly,
+    #[msg("This isn't the recipient named in the withdrawal.")]
+    WrongRecipient,
+    #[msg("The recipient can't be the vault or the withdrawal's own record.")]
+    RecipientNotAllowed,
+    #[msg("The vault would hold less than it owes to waiting withdrawals.")]
+    VaultInvariantBroken,
 }

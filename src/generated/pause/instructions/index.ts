@@ -6,6 +6,9 @@
  * @see https://github.com/codama-idl/codama
  */
 
+export * from "./approveWithdrawal";
 export * from "./createVault";
 export * from "./deposit";
+export * from "./releaseWithdrawal";
 export * from "./requestWithdrawal";
+export * from "./stopWithdrawal";
