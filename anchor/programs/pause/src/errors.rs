@@ -16,4 +16,7 @@ pub enum PauseError {
     GuardianWaitTooShort,
     #[msg("The guardian change wait is longer than 14 days.")]
     GuardianWaitTooLong,
+    // New errors go at the end so existing error codes never change.
+    #[msg("The amount must be more than 0.")]
+    AmountIsZero,
 }

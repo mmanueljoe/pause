@@ -27,6 +27,14 @@ pub struct Vault {
 }
 
 impl Vault {
+    /// The owner's money in the vault: all its SOL except the rent minimum
+    /// Solana requires the account to keep. Not stored as a field, so it can
+    /// never drift from the real SOL balance.
+    pub fn balance_lamports(vault: &AccountInfo) -> Result<u64> {
+        let rent_minimum = Rent::get()?.minimum_balance(vault.data_len());
+        Ok(vault.lamports().saturating_sub(rent_minimum))
+    }
+
     /// A guardian must be a real wallet that isn't the owner's.
     pub fn check_guardian(owner: &Pubkey, guardian: &Pubkey) -> Result<()> {
         require!(*guardian != Pubkey::default(), PauseError::GuardianIsEmpty);
