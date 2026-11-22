@@ -3,7 +3,10 @@ import { Check } from "lucide-react";
 
 import { cx } from "./cx";
 
-/** Numbered steps for vault setup. On phone: "Step 1 of 3: Wait time". */
+/**
+ * Numbered steps for vault setup. Current: off-white circle. Done: tick.
+ * Neutral only. On phone: "Step 1 of 3: Wait time".
+ */
 export function Stepper({
   steps,
   current,
@@ -32,19 +35,23 @@ export function Stepper({
               >
                 <span
                   className={cx(
-                    "flex size-6 items-center justify-center rounded-full font-mono text-[0.75rem]",
+                    "flex size-7 items-center justify-center rounded-full font-mono text-label font-medium",
                     active && "bg-text text-bg",
-                    done && "text-text-2",
+                    done && "bg-surface-2 text-text",
                     !active && !done && "border border-line text-text-3"
                   )}
                 >
                   {done ? (
-                    <Check size={14} strokeWidth={1.5} aria-label="Done" />
+                    <Check size={16} strokeWidth={1.5} aria-label="Done" />
                   ) : (
                     i + 1
                   )}
                 </span>
-                <span className={active ? "text-text" : "text-text-3"}>
+                <span
+                  className={
+                    active ? "text-text" : done ? "text-text-2" : "text-text-3"
+                  }
+                >
                   {label}
                 </span>
               </li>

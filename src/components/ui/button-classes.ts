@@ -6,7 +6,7 @@ export type ButtonVariant =
 export const variantClasses: Record<ButtonVariant, string> = {
   // Off-white pill: one main action per screen.
   primary:
-    "bg-text text-bg hover:bg-released active:bg-text-2 disabled:bg-text-3 disabled:text-surface-2",
+    "bg-text text-bg hover:bg-released active:bg-text-2 disabled:opacity-40 disabled:hover:bg-text",
   // Amber pill: the one action that saves money.
   stop: "bg-waiting text-bg hover:brightness-95 active:brightness-90 disabled:bg-waiting-soft disabled:text-text-3",
   // Outline pill: guardian's Approve now.

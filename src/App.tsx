@@ -4,6 +4,7 @@ import { AppShell } from "./components/layout/AppShell";
 import { Home } from "./pages/Home";
 import { NotFound } from "./pages/NotFound";
 import { Placeholder } from "./pages/Placeholder";
+import { Setup } from "./pages/setup/Setup";
 
 /** One URL per screen (docs/requirements.md, Screens). */
 const router = createBrowserRouter([
@@ -11,10 +12,7 @@ const router = createBrowserRouter([
     element: <AppShell />,
     children: [
       { path: "/", element: <Home /> },
-      {
-        path: "/setup",
-        element: <Placeholder screen={3} title="Create your vault" />,
-      },
+      { path: "/setup", element: <Setup /> },
       {
         path: "/vault",
         element: <Placeholder screen={5} title="Your vault" />,
