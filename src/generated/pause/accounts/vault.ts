@@ -32,12 +32,16 @@ import {
   transformEncoder,
   type Account,
   type Address,
+  type ClientWithRpc,
   type Codec,
   type Decoder,
   type EncodedAccount,
   type Encoder,
   type FetchAccountConfig,
   type FetchAccountsConfig,
+  type GetAccountInfoApi,
+  type GetMultipleAccountsApi,
+  type HasAddress,
   type MaybeAccount,
   type MaybeEncodedAccount,
   type Option,
@@ -51,11 +55,11 @@ import {
   type PendingChangeArgs,
 } from "../types";
 
-export const VAULT_DISCRIMINATOR = new Uint8Array([
+export const VAULT_DISCRIMINATOR: ReadonlyUint8Array = new Uint8Array([
   211, 8, 232, 43, 2, 152, 117, 119,
 ]);
 
-export function getVaultDiscriminatorBytes() {
+export function getVaultDiscriminatorBytes(): ReadonlyUint8Array {
   return fixEncoderSize(getBytesEncoder(), 8).encode(VAULT_DISCRIMINATOR);
 }
 
@@ -86,9 +90,9 @@ export type Vault = {
 
 export type VaultArgs = {
   /** The owner's wallet. Only this wallet can deposit, withdraw or change settings. */
-  owner: Address;
+  owner: Address | HasAddress;
   /** Can stop or approve early, never spend. `None` only after the owner removes them. */
-  guardian: OptionOrNullable<Address>;
+  guardian: OptionOrNullable<Address | HasAddress>;
   /** How long every withdrawal waits. */
   withdrawalWaitSecs: number | bigint;
   /** How long less-safe changes wait (guardian change, shorter withdrawal wait). */
@@ -123,7 +127,7 @@ export function getVaultEncoder(): Encoder<VaultArgs> {
       ["reserved", fixEncoderSize(getBytesEncoder(), 64)],
       ["pendingChange", getOptionEncoder(getPendingChangeEncoder())],
     ]),
-    (value) => ({ ...value, discriminator: VAULT_DISCRIMINATOR }),
+    (value) => ({ ...value, discriminator: VAULT_DISCRIMINATOR })
   );
 }
 
@@ -149,24 +153,26 @@ export function getVaultCodec(): Codec<VaultArgs, Vault> {
 }
 
 export function decodeVault<TAddress extends string = string>(
-  encodedAccount: EncodedAccount<TAddress>,
+  encodedAccount: EncodedAccount<TAddress>
 ): Account<Vault, TAddress>;
 export function decodeVault<TAddress extends string = string>(
-  encodedAccount: MaybeEncodedAccount<TAddress>,
+  encodedAccount: MaybeEncodedAccount<TAddress>
 ): MaybeAccount<Vault, TAddress>;
 export function decodeVault<TAddress extends string = string>(
-  encodedAccount: EncodedAccount<TAddress> | MaybeEncodedAccount<TAddress>,
+  encodedAccount: EncodedAccount<TAddress> | MaybeEncodedAccount<TAddress>
 ): Account<Vault, TAddress> | MaybeAccount<Vault, TAddress> {
   return decodeAccount(
     encodedAccount as MaybeEncodedAccount<TAddress>,
-    getVaultDecoder(),
+    getVaultDecoder()
   );
 }
 
 export async function fetchVault<TAddress extends string = string>(
-  rpc: Parameters<typeof fetchEncodedAccount>[0],
-  address: Address<TAddress>,
-  config?: FetchAccountConfig,
+  rpc:
+    | Parameters<typeof fetchEncodedAccount>[0]
+    | ClientWithRpc<GetAccountInfoApi>,
+  address: Address<TAddress> | HasAddress<TAddress>,
+  config?: FetchAccountConfig
 ): Promise<Account<Vault, TAddress>> {
   const maybeAccount = await fetchMaybeVault(rpc, address, config);
   assertAccountExists(maybeAccount);
@@ -174,18 +180,26 @@ export async function fetchVault<TAddress extends string = string>(
 }
 
 export async function fetchMaybeVault<TAddress extends string = string>(
-  rpc: Parameters<typeof fetchEncodedAccount>[0],
-  address: Address<TAddress>,
-  config?: FetchAccountConfig,
+  rpc:
+    | Parameters<typeof fetchEncodedAccount>[0]
+    | ClientWithRpc<GetAccountInfoApi>,
+  address: Address<TAddress> | HasAddress<TAddress>,
+  config?: FetchAccountConfig
 ): Promise<MaybeAccount<Vault, TAddress>> {
-  const maybeAccount = await fetchEncodedAccount(rpc, address, config);
+  const maybeAccount = await fetchEncodedAccount(
+    "rpc" in rpc ? rpc.rpc : rpc,
+    typeof address === "string" ? address : address.address,
+    config
+  );
   return decodeVault(maybeAccount);
 }
 
 export async function fetchAllVault(
-  rpc: Parameters<typeof fetchEncodedAccounts>[0],
-  addresses: Array<Address>,
-  config?: FetchAccountsConfig,
+  rpc:
+    | Parameters<typeof fetchEncodedAccounts>[0]
+    | ClientWithRpc<GetMultipleAccountsApi>,
+  addresses: Array<Address | HasAddress>,
+  config?: FetchAccountsConfig
 ): Promise<Account<Vault>[]> {
   const maybeAccounts = await fetchAllMaybeVault(rpc, addresses, config);
   assertAccountsExist(maybeAccounts);
@@ -193,10 +207,16 @@ export async function fetchAllVault(
 }
 
 export async function fetchAllMaybeVault(
-  rpc: Parameters<typeof fetchEncodedAccounts>[0],
-  addresses: Array<Address>,
-  config?: FetchAccountsConfig,
+  rpc:
+    | Parameters<typeof fetchEncodedAccounts>[0]
+    | ClientWithRpc<GetMultipleAccountsApi>,
+  addresses: Array<Address | HasAddress>,
+  config?: FetchAccountsConfig
 ): Promise<MaybeAccount<Vault>[]> {
-  const maybeAccounts = await fetchEncodedAccounts(rpc, addresses, config);
+  const maybeAccounts = await fetchEncodedAccounts(
+    "rpc" in rpc ? rpc.rpc : rpc,
+    addresses.map((a) => (typeof a === "string" ? a : a.address)),
+    config
+  );
   return maybeAccounts.map((maybeAccount) => decodeVault(maybeAccount));
 }

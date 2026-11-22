@@ -30,12 +30,16 @@ import {
   transformEncoder,
   type Account,
   type Address,
+  type ClientWithRpc,
   type Codec,
   type Decoder,
   type EncodedAccount,
   type Encoder,
   type FetchAccountConfig,
   type FetchAccountsConfig,
+  type GetAccountInfoApi,
+  type GetMultipleAccountsApi,
+  type HasAddress,
   type MaybeAccount,
   type MaybeEncodedAccount,
   type ReadonlyUint8Array,
@@ -47,11 +51,11 @@ import {
   type WithdrawalStatusArgs,
 } from "../types";
 
-export const WITHDRAWAL_DISCRIMINATOR = new Uint8Array([
+export const WITHDRAWAL_DISCRIMINATOR: ReadonlyUint8Array = new Uint8Array([
   10, 45, 211, 182, 129, 235, 90, 82,
 ]);
 
-export function getWithdrawalDiscriminatorBytes() {
+export function getWithdrawalDiscriminatorBytes(): ReadonlyUint8Array {
   return fixEncoderSize(getBytesEncoder(), 8).encode(WITHDRAWAL_DISCRIMINATOR);
 }
 
@@ -80,11 +84,11 @@ export type Withdrawal = {
 
 export type WithdrawalArgs = {
   /** The vault this withdrawal comes from. */
-  vault: Address;
+  vault: Address | HasAddress;
   /** 0, 1, 2… per vault, taken from the vault's counter. */
   id: number | bigint;
   /** The only address this money can ever go to. */
-  recipient: Address;
+  recipient: Address | HasAddress;
   amountLamports: number | bigint;
   /** When it was requested (unix time, seconds). */
   requestedAt: number | bigint;
@@ -115,7 +119,7 @@ export function getWithdrawalEncoder(): Encoder<WithdrawalArgs> {
       ["bump", getU8Encoder()],
       ["reserved", fixEncoderSize(getBytesEncoder(), 32)],
     ]),
-    (value) => ({ ...value, discriminator: WITHDRAWAL_DISCRIMINATOR }),
+    (value) => ({ ...value, discriminator: WITHDRAWAL_DISCRIMINATOR })
   );
 }
 
@@ -141,24 +145,26 @@ export function getWithdrawalCodec(): Codec<WithdrawalArgs, Withdrawal> {
 }
 
 export function decodeWithdrawal<TAddress extends string = string>(
-  encodedAccount: EncodedAccount<TAddress>,
+  encodedAccount: EncodedAccount<TAddress>
 ): Account<Withdrawal, TAddress>;
 export function decodeWithdrawal<TAddress extends string = string>(
-  encodedAccount: MaybeEncodedAccount<TAddress>,
+  encodedAccount: MaybeEncodedAccount<TAddress>
 ): MaybeAccount<Withdrawal, TAddress>;
 export function decodeWithdrawal<TAddress extends string = string>(
-  encodedAccount: EncodedAccount<TAddress> | MaybeEncodedAccount<TAddress>,
+  encodedAccount: EncodedAccount<TAddress> | MaybeEncodedAccount<TAddress>
 ): Account<Withdrawal, TAddress> | MaybeAccount<Withdrawal, TAddress> {
   return decodeAccount(
     encodedAccount as MaybeEncodedAccount<TAddress>,
-    getWithdrawalDecoder(),
+    getWithdrawalDecoder()
   );
 }
 
 export async function fetchWithdrawal<TAddress extends string = string>(
-  rpc: Parameters<typeof fetchEncodedAccount>[0],
-  address: Address<TAddress>,
-  config?: FetchAccountConfig,
+  rpc:
+    | Parameters<typeof fetchEncodedAccount>[0]
+    | ClientWithRpc<GetAccountInfoApi>,
+  address: Address<TAddress> | HasAddress<TAddress>,
+  config?: FetchAccountConfig
 ): Promise<Account<Withdrawal, TAddress>> {
   const maybeAccount = await fetchMaybeWithdrawal(rpc, address, config);
   assertAccountExists(maybeAccount);
@@ -166,18 +172,26 @@ export async function fetchWithdrawal<TAddress extends string = string>(
 }
 
 export async function fetchMaybeWithdrawal<TAddress extends string = string>(
-  rpc: Parameters<typeof fetchEncodedAccount>[0],
-  address: Address<TAddress>,
-  config?: FetchAccountConfig,
+  rpc:
+    | Parameters<typeof fetchEncodedAccount>[0]
+    | ClientWithRpc<GetAccountInfoApi>,
+  address: Address<TAddress> | HasAddress<TAddress>,
+  config?: FetchAccountConfig
 ): Promise<MaybeAccount<Withdrawal, TAddress>> {
-  const maybeAccount = await fetchEncodedAccount(rpc, address, config);
+  const maybeAccount = await fetchEncodedAccount(
+    "rpc" in rpc ? rpc.rpc : rpc,
+    typeof address === "string" ? address : address.address,
+    config
+  );
   return decodeWithdrawal(maybeAccount);
 }
 
 export async function fetchAllWithdrawal(
-  rpc: Parameters<typeof fetchEncodedAccounts>[0],
-  addresses: Array<Address>,
-  config?: FetchAccountsConfig,
+  rpc:
+    | Parameters<typeof fetchEncodedAccounts>[0]
+    | ClientWithRpc<GetMultipleAccountsApi>,
+  addresses: Array<Address | HasAddress>,
+  config?: FetchAccountsConfig
 ): Promise<Account<Withdrawal>[]> {
   const maybeAccounts = await fetchAllMaybeWithdrawal(rpc, addresses, config);
   assertAccountsExist(maybeAccounts);
@@ -185,10 +199,16 @@ export async function fetchAllWithdrawal(
 }
 
 export async function fetchAllMaybeWithdrawal(
-  rpc: Parameters<typeof fetchEncodedAccounts>[0],
-  addresses: Array<Address>,
-  config?: FetchAccountsConfig,
+  rpc:
+    | Parameters<typeof fetchEncodedAccounts>[0]
+    | ClientWithRpc<GetMultipleAccountsApi>,
+  addresses: Array<Address | HasAddress>,
+  config?: FetchAccountsConfig
 ): Promise<MaybeAccount<Withdrawal>[]> {
-  const maybeAccounts = await fetchEncodedAccounts(rpc, addresses, config);
+  const maybeAccounts = await fetchEncodedAccounts(
+    "rpc" in rpc ? rpc.rpc : rpc,
+    addresses.map((a) => (typeof a === "string" ? a : a.address)),
+    config
+  );
   return maybeAccounts.map((maybeAccount) => decodeWithdrawal(maybeAccount));
 }

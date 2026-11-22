@@ -11,20 +11,26 @@ import {
   getBytesEncoder,
   getProgramDerivedAddress,
   type Address,
+  type HasAddress,
   type ProgramDerivedAddress,
 } from "@solana/kit";
 
 export type VaultSeeds = {
-  owner: Address;
+  owner: Address | HasAddress;
 };
 
 export async function findVaultPda(
   seeds: VaultSeeds,
-  config: { programAddress?: Address | undefined } = {},
+  config: { programAddress?: Address | HasAddress | undefined } = {}
 ): Promise<ProgramDerivedAddress> {
   const {
-    programAddress = "BUFdujWydbi7UA13x1EnBavq7iwNjaxip5Csuv9fjEDz" as Address<"BUFdujWydbi7UA13x1EnBavq7iwNjaxip5Csuv9fjEDz">,
+    programAddress:
+      programAddressInput = "BUFdujWydbi7UA13x1EnBavq7iwNjaxip5Csuv9fjEDz" as Address<"BUFdujWydbi7UA13x1EnBavq7iwNjaxip5Csuv9fjEDz">,
   } = config;
+  const programAddress =
+    typeof programAddressInput === "string"
+      ? programAddressInput
+      : programAddressInput.address;
   return await getProgramDerivedAddress({
     programAddress,
     seeds: [

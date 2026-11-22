@@ -1,61 +1,87 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: oklch(0.145 0 0);
-  --border-strong: oklch(0.839 0.0187 78.23);
-  --border-low: oklch(0.927 0.0122 96.43);
-  --accent: oklch(0 0 0);
-  --muted: #3a3a3a;
-  --cream: oklch(0.9553 0.0029 84.56);
-  --card: #ffffff;
-  --card-foreground: oklch(0.145 0 0);
-  --radius: 0.625rem;
-  --font-sans: system-ui, sans-serif;
-  --font-mono: ui-monospace, monospace;
-}
+/* Pause design tokens. Source: design/handover.md §2 (names match Figma styles). Dark only. */
+@theme {
+  --color-bg: #121110;
+  --color-surface-1: #1b1a18;
+  --color-surface-2: #24221f;
+  --color-line: #34312c;
+  --color-text: #f4f1ea;
+  --color-text-2: #b3ada2;
+  --color-text-3: #8a8479;
+  --color-waiting: #f2a93b;
+  --color-waiting-soft: #3a2a12;
+  --color-stopped: #6bcb8b;
+  --color-stopped-soft: #16301f;
+  --color-released: #d9d4ca;
+  --color-error: #e5654f;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --border-strong: oklch(1 0 0 / 0.12);
-    --border-low: oklch(1 0 0 / 0.08);
-    --accent: oklch(0.922 0 0);
-    --muted: oklch(0.75 0.01 260);
-    --cream: oklch(0.22 0.009 70.82);
-    --card: oklch(0.205 0 0);
-    --card-foreground: oklch(0.985 0 0);
-  }
-}
+  --font-sans: "Instrument Sans", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-bg1: var(--background);
-  --color-foreground: var(--foreground);
-  --color-cream: var(--cream);
-  --color-border: var(--border-strong);
-  --color-border-strong: var(--border-strong);
-  --color-border-low: var(--border-low);
-  --color-primary: var(--accent);
-  --color-muted: var(--muted);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-mono);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  /* Phone sizes are the defaults; use the -lg sizes from md: up */
+  --text-display: 2.5rem;
+  --text-display--line-height: 2.75rem;
+  --text-display--letter-spacing: -0.02em;
+  --text-display-lg: 4rem;
+  --text-display-lg--line-height: 4.25rem;
+  --text-display-lg--letter-spacing: -0.02em;
+  --text-h1: 1.875rem;
+  --text-h1--line-height: 2.25rem;
+  --text-h1--letter-spacing: -0.015em;
+  --text-h1-lg: 2.5rem;
+  --text-h1-lg--line-height: 3rem;
+  --text-h1-lg--letter-spacing: -0.015em;
+  --text-h2: 1.5rem;
+  --text-h2--line-height: 2rem;
+  --text-h2--letter-spacing: -0.01em;
+  --text-h2-lg: 1.75rem;
+  --text-h2-lg--line-height: 2.25rem;
+  --text-h2-lg--letter-spacing: -0.01em;
+  --text-h3: 1.125rem;
+  --text-h3--line-height: 1.625rem;
+  --text-h3--letter-spacing: -0.005em;
+  --text-h3-lg: 1.25rem;
+  --text-h3-lg--line-height: 1.75rem;
+  --text-h3-lg--letter-spacing: -0.005em;
+  --text-body: 1rem;
+  --text-body--line-height: 1.5rem;
+  --text-small: 0.875rem;
+  --text-small--line-height: 1.25rem;
+  --text-label: 0.75rem;
+  --text-label--line-height: 1rem;
+  --text-label--letter-spacing: 0.08em;
+  --text-countdown: 2.5rem;
+  --text-countdown--line-height: 3rem;
+  --text-countdown-lg: 3rem;
+  --text-countdown-lg--line-height: 3.5rem;
+
+  --radius-input: 12px;
+  --radius-card: 16px;
 }
 
 @layer base {
-  * {
-    @apply border-border outline-transparent;
+  html {
+    color-scheme: dark;
   }
-
   body {
-    @apply bg-bg1 text-foreground antialiased;
-    font-family: var(--font-sans);
-    color-scheme: light dark;
+    @apply bg-bg font-sans text-text antialiased;
+  }
+  .font-mono {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Shared focus ring: 2px charcoal gap, then a 2px off-white ring, no blur. */
+@utility focus-ring {
+  @apply focus-visible:ring-2 focus-visible:ring-text focus-visible:ring-offset-2 focus-visible:ring-offset-bg focus-visible:outline-none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
   }
 }

@@ -18,6 +18,8 @@ import {
   getI64Encoder,
   getStructDecoder,
   getStructEncoder,
+  SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
+  SolanaError,
   transformEncoder,
   type AccountMeta,
   type AccountSignerMeta,
@@ -25,30 +27,34 @@ import {
   type FixedSizeCodec,
   type FixedSizeDecoder,
   type FixedSizeEncoder,
+  type HasAddress,
   type Instruction,
   type InstructionWithAccounts,
   type InstructionWithData,
   type ReadonlyAccount,
   type ReadonlyUint8Array,
-  type TransactionSigner,
   type WritableAccount,
   type WritableSignerAccount,
 } from "@solana/kit";
+import {
+  getAccountMetaFactory,
+  getAddressFromResolvedInstructionAccount,
+  type InstructionAccountInput,
+  type InstructionAccountInputAddress,
+  type InstructionSignerInput,
+  type ResolvedInstructionAccount,
+  type ResolvedInstructionAccountMeta,
+} from "@solana/program-client-core";
 import { findVaultPda } from "../pdas";
 import { PAUSE_PROGRAM_ADDRESS } from "../programs";
-import {
-  expectAddress,
-  getAccountMetaFactory,
-  type ResolvedAccount,
-} from "../shared";
 
-export const CREATE_VAULT_DISCRIMINATOR = new Uint8Array([
+export const CREATE_VAULT_DISCRIMINATOR: ReadonlyUint8Array = new Uint8Array([
   29, 237, 247, 208, 193, 82, 54, 135,
 ]);
 
-export function getCreateVaultDiscriminatorBytes() {
+export function getCreateVaultDiscriminatorBytes(): ReadonlyUint8Array {
   return fixEncoderSize(getBytesEncoder(), 8).encode(
-    CREATE_VAULT_DISCRIMINATOR,
+    CREATE_VAULT_DISCRIMINATOR
   );
 }
 
@@ -93,7 +99,7 @@ export type CreateVaultInstructionData = {
 };
 
 export type CreateVaultInstructionDataArgs = {
-  guardian: Address;
+  guardian: Address | HasAddress;
   withdrawalWaitSecs: number | bigint;
   guardianWaitSecs: number | bigint;
 };
@@ -106,7 +112,7 @@ export function getCreateVaultInstructionDataEncoder(): FixedSizeEncoder<CreateV
       ["withdrawalWaitSecs", getI64Encoder()],
       ["guardianWaitSecs", getI64Encoder()],
     ]),
-    (value) => ({ ...value, discriminator: CREATE_VAULT_DISCRIMINATOR }),
+    (value) => ({ ...value, discriminator: CREATE_VAULT_DISCRIMINATOR })
   );
 }
 
@@ -125,35 +131,37 @@ export function getCreateVaultInstructionDataCodec(): FixedSizeCodec<
 > {
   return combineCodec(
     getCreateVaultInstructionDataEncoder(),
-    getCreateVaultInstructionDataDecoder(),
+    getCreateVaultInstructionDataDecoder()
   );
 }
 
 export type CreateVaultAsyncInput<
-  TAccountOwner extends string = string,
-  TAccountVault extends string = string,
-  TAccountSystemProgram extends string = string,
-  TAccountEventAuthority extends string = string,
-  TAccountProgram extends string = string,
+  TAccountOwner extends InstructionSignerInput = InstructionSignerInput,
+  TAccountVault extends InstructionAccountInput = InstructionAccountInput,
+  TAccountSystemProgram extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountEventAuthority extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountProgram extends InstructionAccountInput = InstructionAccountInput,
 > = {
   /** The owner signs and pays the account's rent. */
-  owner: TransactionSigner<TAccountOwner>;
+  owner: TAccountOwner;
   /** `init` fails if this owner already has a vault, so one vault per owner. */
-  vault?: Address<TAccountVault>;
-  systemProgram?: Address<TAccountSystemProgram>;
-  eventAuthority: Address<TAccountEventAuthority>;
-  program: Address<TAccountProgram>;
+  vault?: TAccountVault;
+  systemProgram?: TAccountSystemProgram;
+  eventAuthority: TAccountEventAuthority;
+  program: TAccountProgram;
   guardian: CreateVaultInstructionDataArgs["guardian"];
   withdrawalWaitSecs: CreateVaultInstructionDataArgs["withdrawalWaitSecs"];
   guardianWaitSecs: CreateVaultInstructionDataArgs["guardianWaitSecs"];
 };
 
 export async function getCreateVaultInstructionAsync<
-  TAccountOwner extends string,
-  TAccountVault extends string,
-  TAccountSystemProgram extends string,
-  TAccountEventAuthority extends string,
-  TAccountProgram extends string,
+  TAccountOwner extends InstructionSignerInput,
+  TAccountVault extends InstructionAccountInput,
+  TAccountSystemProgram extends InstructionAccountInput,
+  TAccountEventAuthority extends InstructionAccountInput,
+  TAccountProgram extends InstructionAccountInput,
   TProgramAddress extends Address = typeof PAUSE_PROGRAM_ADDRESS,
 >(
   input: CreateVaultAsyncInput<
@@ -163,31 +171,67 @@ export async function getCreateVaultInstructionAsync<
     TAccountEventAuthority,
     TAccountProgram
   >,
-  config?: { programAddress?: TProgramAddress },
+  config?: {
+    programAddress?: TProgramAddress | { readonly address: TProgramAddress };
+  }
 ): Promise<
   CreateVaultInstruction<
     TProgramAddress,
-    TAccountOwner,
-    TAccountVault,
-    TAccountSystemProgram,
-    TAccountEventAuthority,
-    TAccountProgram
+    ResolvedInstructionAccountMeta<
+      TAccountOwner,
+      InstructionAccountInputAddress<TAccountOwner>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountVault,
+      InstructionAccountInputAddress<TAccountVault>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountSystemProgram,
+      InstructionAccountInputAddress<TAccountSystemProgram>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountEventAuthority,
+      InstructionAccountInputAddress<TAccountEventAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountProgram,
+      InstructionAccountInputAddress<TAccountProgram>
+    >
   >
 > {
   // Program address.
-  const programAddress = config?.programAddress ?? PAUSE_PROGRAM_ADDRESS;
+  const programAddressInput = config?.programAddress ?? PAUSE_PROGRAM_ADDRESS;
+  const programAddress =
+    typeof programAddressInput === "string"
+      ? programAddressInput
+      : programAddressInput.address;
+
+  // Account meta helper.
+  const getAccountMeta = getAccountMetaFactory(programAddress, "programId");
 
   // Original accounts.
   const originalAccounts = {
-    owner: { value: input.owner ?? null, isWritable: true },
-    vault: { value: input.vault ?? null, isWritable: true },
-    systemProgram: { value: input.systemProgram ?? null, isWritable: false },
-    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
-    program: { value: input.program ?? null, isWritable: false },
+    owner: { value: input.owner ?? null, isSigner: true, isWritable: true },
+    vault: { value: input.vault ?? null, isSigner: false, isWritable: true },
+    systemProgram: {
+      value: input.systemProgram ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    eventAuthority: {
+      value: input.eventAuthority ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    program: {
+      value: input.program ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
-    ResolvedAccount
+    ResolvedInstructionAccount
   >;
 
   // Original args.
@@ -195,63 +239,85 @@ export async function getCreateVaultInstructionAsync<
 
   // Resolve default values.
   if (!accounts.vault.value) {
-    accounts.vault.value = await findVaultPda({
-      owner: expectAddress(accounts.owner.value),
-    });
+    accounts.vault.value = await findVaultPda(
+      {
+        owner: getAddressFromResolvedInstructionAccount(
+          "owner",
+          accounts.owner.value
+        ),
+      },
+      { programAddress }
+    );
   }
   if (!accounts.systemProgram.value) {
     accounts.systemProgram.value =
       "11111111111111111111111111111111" as Address<"11111111111111111111111111111111">;
   }
 
-  const getAccountMeta = getAccountMetaFactory(programAddress, "programId");
   return Object.freeze({
     accounts: [
-      getAccountMeta(accounts.owner),
-      getAccountMeta(accounts.vault),
-      getAccountMeta(accounts.systemProgram),
-      getAccountMeta(accounts.eventAuthority),
-      getAccountMeta(accounts.program),
+      getAccountMeta("owner", accounts.owner),
+      getAccountMeta("vault", accounts.vault),
+      getAccountMeta("systemProgram", accounts.systemProgram),
+      getAccountMeta("eventAuthority", accounts.eventAuthority),
+      getAccountMeta("program", accounts.program),
     ],
     data: getCreateVaultInstructionDataEncoder().encode(
-      args as CreateVaultInstructionDataArgs,
+      args as CreateVaultInstructionDataArgs
     ),
     programAddress,
   } as CreateVaultInstruction<
     TProgramAddress,
-    TAccountOwner,
-    TAccountVault,
-    TAccountSystemProgram,
-    TAccountEventAuthority,
-    TAccountProgram
+    ResolvedInstructionAccountMeta<
+      TAccountOwner,
+      InstructionAccountInputAddress<TAccountOwner>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountVault,
+      InstructionAccountInputAddress<TAccountVault>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountSystemProgram,
+      InstructionAccountInputAddress<TAccountSystemProgram>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountEventAuthority,
+      InstructionAccountInputAddress<TAccountEventAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountProgram,
+      InstructionAccountInputAddress<TAccountProgram>
+    >
   >);
 }
 
 export type CreateVaultInput<
-  TAccountOwner extends string = string,
-  TAccountVault extends string = string,
-  TAccountSystemProgram extends string = string,
-  TAccountEventAuthority extends string = string,
-  TAccountProgram extends string = string,
+  TAccountOwner extends InstructionSignerInput = InstructionSignerInput,
+  TAccountVault extends InstructionAccountInput = InstructionAccountInput,
+  TAccountSystemProgram extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountEventAuthority extends InstructionAccountInput =
+    InstructionAccountInput,
+  TAccountProgram extends InstructionAccountInput = InstructionAccountInput,
 > = {
   /** The owner signs and pays the account's rent. */
-  owner: TransactionSigner<TAccountOwner>;
+  owner: TAccountOwner;
   /** `init` fails if this owner already has a vault, so one vault per owner. */
-  vault: Address<TAccountVault>;
-  systemProgram?: Address<TAccountSystemProgram>;
-  eventAuthority: Address<TAccountEventAuthority>;
-  program: Address<TAccountProgram>;
+  vault: TAccountVault;
+  systemProgram?: TAccountSystemProgram;
+  eventAuthority: TAccountEventAuthority;
+  program: TAccountProgram;
   guardian: CreateVaultInstructionDataArgs["guardian"];
   withdrawalWaitSecs: CreateVaultInstructionDataArgs["withdrawalWaitSecs"];
   guardianWaitSecs: CreateVaultInstructionDataArgs["guardianWaitSecs"];
 };
 
 export function getCreateVaultInstruction<
-  TAccountOwner extends string,
-  TAccountVault extends string,
-  TAccountSystemProgram extends string,
-  TAccountEventAuthority extends string,
-  TAccountProgram extends string,
+  TAccountOwner extends InstructionSignerInput,
+  TAccountVault extends InstructionAccountInput,
+  TAccountSystemProgram extends InstructionAccountInput,
+  TAccountEventAuthority extends InstructionAccountInput,
+  TAccountProgram extends InstructionAccountInput,
   TProgramAddress extends Address = typeof PAUSE_PROGRAM_ADDRESS,
 >(
   input: CreateVaultInput<
@@ -261,29 +327,65 @@ export function getCreateVaultInstruction<
     TAccountEventAuthority,
     TAccountProgram
   >,
-  config?: { programAddress?: TProgramAddress },
+  config?: {
+    programAddress?: TProgramAddress | { readonly address: TProgramAddress };
+  }
 ): CreateVaultInstruction<
   TProgramAddress,
-  TAccountOwner,
-  TAccountVault,
-  TAccountSystemProgram,
-  TAccountEventAuthority,
-  TAccountProgram
+  ResolvedInstructionAccountMeta<
+    TAccountOwner,
+    InstructionAccountInputAddress<TAccountOwner>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountVault,
+    InstructionAccountInputAddress<TAccountVault>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountSystemProgram,
+    InstructionAccountInputAddress<TAccountSystemProgram>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountEventAuthority,
+    InstructionAccountInputAddress<TAccountEventAuthority>
+  >,
+  ResolvedInstructionAccountMeta<
+    TAccountProgram,
+    InstructionAccountInputAddress<TAccountProgram>
+  >
 > {
   // Program address.
-  const programAddress = config?.programAddress ?? PAUSE_PROGRAM_ADDRESS;
+  const programAddressInput = config?.programAddress ?? PAUSE_PROGRAM_ADDRESS;
+  const programAddress =
+    typeof programAddressInput === "string"
+      ? programAddressInput
+      : programAddressInput.address;
+
+  // Account meta helper.
+  const getAccountMeta = getAccountMetaFactory(programAddress, "programId");
 
   // Original accounts.
   const originalAccounts = {
-    owner: { value: input.owner ?? null, isWritable: true },
-    vault: { value: input.vault ?? null, isWritable: true },
-    systemProgram: { value: input.systemProgram ?? null, isWritable: false },
-    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
-    program: { value: input.program ?? null, isWritable: false },
+    owner: { value: input.owner ?? null, isSigner: true, isWritable: true },
+    vault: { value: input.vault ?? null, isSigner: false, isWritable: true },
+    systemProgram: {
+      value: input.systemProgram ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    eventAuthority: {
+      value: input.eventAuthority ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
+    program: {
+      value: input.program ?? null,
+      isSigner: false,
+      isWritable: false,
+    },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
-    ResolvedAccount
+    ResolvedInstructionAccount
   >;
 
   // Original args.
@@ -295,26 +397,40 @@ export function getCreateVaultInstruction<
       "11111111111111111111111111111111" as Address<"11111111111111111111111111111111">;
   }
 
-  const getAccountMeta = getAccountMetaFactory(programAddress, "programId");
   return Object.freeze({
     accounts: [
-      getAccountMeta(accounts.owner),
-      getAccountMeta(accounts.vault),
-      getAccountMeta(accounts.systemProgram),
-      getAccountMeta(accounts.eventAuthority),
-      getAccountMeta(accounts.program),
+      getAccountMeta("owner", accounts.owner),
+      getAccountMeta("vault", accounts.vault),
+      getAccountMeta("systemProgram", accounts.systemProgram),
+      getAccountMeta("eventAuthority", accounts.eventAuthority),
+      getAccountMeta("program", accounts.program),
     ],
     data: getCreateVaultInstructionDataEncoder().encode(
-      args as CreateVaultInstructionDataArgs,
+      args as CreateVaultInstructionDataArgs
     ),
     programAddress,
   } as CreateVaultInstruction<
     TProgramAddress,
-    TAccountOwner,
-    TAccountVault,
-    TAccountSystemProgram,
-    TAccountEventAuthority,
-    TAccountProgram
+    ResolvedInstructionAccountMeta<
+      TAccountOwner,
+      InstructionAccountInputAddress<TAccountOwner>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountVault,
+      InstructionAccountInputAddress<TAccountVault>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountSystemProgram,
+      InstructionAccountInputAddress<TAccountSystemProgram>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountEventAuthority,
+      InstructionAccountInputAddress<TAccountEventAuthority>
+    >,
+    ResolvedInstructionAccountMeta<
+      TAccountProgram,
+      InstructionAccountInputAddress<TAccountProgram>
+    >
   >);
 }
 
@@ -341,11 +457,16 @@ export function parseCreateVaultInstruction<
 >(
   instruction: Instruction<TProgram> &
     InstructionWithAccounts<TAccountMetas> &
-    InstructionWithData<ReadonlyUint8Array>,
+    InstructionWithData<ReadonlyUint8Array>
 ): ParsedCreateVaultInstruction<TProgram, TAccountMetas> {
   if (instruction.accounts.length < 5) {
-    // TODO: Coded error.
-    throw new Error("Not enough accounts");
+    throw new SolanaError(
+      SOLANA_ERROR__PROGRAM_CLIENTS__INSUFFICIENT_ACCOUNT_METAS,
+      {
+        actualAccountMetas: instruction.accounts.length,
+        expectedAccountMetas: 5,
+      }
+    );
   }
   let accountIndex = 0;
   const getNextAccount = () => {

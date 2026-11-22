@@ -4,7 +4,14 @@
     "js": [
       {
         "from": "@codama/renderers-js",
-        "args": ["./src/generated/pause"]
+        "args": [
+          "./src/generated/pause",
+          {
+            "generatedFolder": ".",
+            "syncPackageJson": false,
+            "deleteFolderBeforeRendering": true
+          }
+        ]
       }
     ]
   }
