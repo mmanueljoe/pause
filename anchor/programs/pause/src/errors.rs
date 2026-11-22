@@ -19,4 +19,12 @@ pub enum PauseError {
     // New errors go at the end so existing error codes never change.
     #[msg("The amount must be more than 0.")]
     AmountIsZero,
+    #[msg("The amount is below the smallest amount Solana lets a new address hold.")]
+    AmountBelowMinimum,
+    #[msg("The vault doesn't have enough SOL that isn't already waiting to leave.")]
+    NotEnoughInVault,
+    #[msg("The recipient address is empty.")]
+    RecipientIsEmpty,
+    #[msg("A number got too large.")]
+    MathOverflow,
 }

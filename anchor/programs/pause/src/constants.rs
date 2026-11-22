@@ -3,6 +3,9 @@
 /// Seed for the vault's address: `["vault", owner]`, so each owner has one vault.
 pub const VAULT_SEED: &[u8] = b"vault";
 
+/// Seed for a withdrawal's address: `["withdrawal", vault, id]`.
+pub const WITHDRAWAL_SEED: &[u8] = b"withdrawal";
+
 pub const MINUTE_SECS: i64 = 60;
 pub const HOUR_SECS: i64 = 60 * MINUTE_SECS;
 pub const DAY_SECS: i64 = 24 * HOUR_SECS;

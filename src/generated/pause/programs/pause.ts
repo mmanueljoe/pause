@@ -19,8 +19,10 @@ import {
 import {
   parseCreateVaultInstruction,
   parseDepositInstruction,
+  parseRequestWithdrawalInstruction,
   type ParsedCreateVaultInstruction,
   type ParsedDepositInstruction,
+  type ParsedRequestWithdrawalInstruction,
 } from "../instructions";
 
 export const PAUSE_PROGRAM_ADDRESS =
@@ -28,6 +30,7 @@ export const PAUSE_PROGRAM_ADDRESS =
 
 export enum PauseAccount {
   Vault,
+  Withdrawal,
 }
 
 export function identifyPauseAccount(
@@ -45,6 +48,17 @@ export function identifyPauseAccount(
   ) {
     return PauseAccount.Vault;
   }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([10, 45, 211, 182, 129, 235, 90, 82]),
+      ),
+      0,
+    )
+  ) {
+    return PauseAccount.Withdrawal;
+  }
   throw new Error(
     "The provided account could not be identified as a pause account.",
   );
@@ -53,6 +67,7 @@ export function identifyPauseAccount(
 export enum PauseInstruction {
   CreateVault,
   Deposit,
+  RequestWithdrawal,
 }
 
 export function identifyPauseInstruction(
@@ -81,6 +96,17 @@ export function identifyPauseInstruction(
   ) {
     return PauseInstruction.Deposit;
   }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([251, 85, 121, 205, 56, 201, 12, 177]),
+      ),
+      0,
+    )
+  ) {
+    return PauseInstruction.RequestWithdrawal;
+  }
   throw new Error(
     "The provided instruction could not be identified as a pause instruction.",
   );
@@ -94,7 +120,10 @@ export type ParsedPauseInstruction<
     } & ParsedCreateVaultInstruction<TProgram>)
   | ({
       instructionType: PauseInstruction.Deposit;
-    } & ParsedDepositInstruction<TProgram>);
+    } & ParsedDepositInstruction<TProgram>)
+  | ({
+      instructionType: PauseInstruction.RequestWithdrawal;
+    } & ParsedRequestWithdrawalInstruction<TProgram>);
 
 export function parsePauseInstruction<TProgram extends string>(
   instruction: Instruction<TProgram> & InstructionWithData<ReadonlyUint8Array>,
@@ -113,6 +142,13 @@ export function parsePauseInstruction<TProgram extends string>(
       return {
         instructionType: PauseInstruction.Deposit,
         ...parseDepositInstruction(instruction),
+      };
+    }
+    case PauseInstruction.RequestWithdrawal: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: PauseInstruction.RequestWithdrawal,
+        ...parseRequestWithdrawalInstruction(instruction),
       };
     }
     default:

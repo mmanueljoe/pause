@@ -45,4 +45,14 @@ pub mod pause {
     pub fn deposit(ctx: Context<Deposit>, amount_lamports: u64) -> Result<()> {
         instructions::deposit::handle_deposit(ctx, amount_lamports)
     }
+
+    /// Owner asks to send SOL to `recipient`. Nothing moves yet: every
+    /// withdrawal waits the vault's withdrawal wait (core rule 1).
+    pub fn request_withdrawal(
+        ctx: Context<RequestWithdrawal>,
+        recipient: Pubkey,
+        amount_lamports: u64,
+    ) -> Result<()> {
+        instructions::request_withdrawal::handle_request_withdrawal(ctx, recipient, amount_lamports)
+    }
 }

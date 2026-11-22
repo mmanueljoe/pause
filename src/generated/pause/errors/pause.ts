@@ -28,24 +28,40 @@ export const PAUSE_ERROR__GUARDIAN_WAIT_TOO_SHORT = 0x1774; // 6004
 export const PAUSE_ERROR__GUARDIAN_WAIT_TOO_LONG = 0x1775; // 6005
 /** AmountIsZero: The amount must be more than 0. */
 export const PAUSE_ERROR__AMOUNT_IS_ZERO = 0x1776; // 6006
+/** AmountBelowMinimum: The amount is below the smallest amount Solana lets a new address hold. */
+export const PAUSE_ERROR__AMOUNT_BELOW_MINIMUM = 0x1777; // 6007
+/** NotEnoughInVault: The vault doesn't have enough SOL that isn't already waiting to leave. */
+export const PAUSE_ERROR__NOT_ENOUGH_IN_VAULT = 0x1778; // 6008
+/** RecipientIsEmpty: The recipient address is empty. */
+export const PAUSE_ERROR__RECIPIENT_IS_EMPTY = 0x1779; // 6009
+/** MathOverflow: A number got too large. */
+export const PAUSE_ERROR__MATH_OVERFLOW = 0x177a; // 6010
 
 export type PauseError =
+  | typeof PAUSE_ERROR__AMOUNT_BELOW_MINIMUM
   | typeof PAUSE_ERROR__AMOUNT_IS_ZERO
   | typeof PAUSE_ERROR__GUARDIAN_IS_EMPTY
   | typeof PAUSE_ERROR__GUARDIAN_IS_OWNER
   | typeof PAUSE_ERROR__GUARDIAN_WAIT_TOO_LONG
   | typeof PAUSE_ERROR__GUARDIAN_WAIT_TOO_SHORT
+  | typeof PAUSE_ERROR__MATH_OVERFLOW
+  | typeof PAUSE_ERROR__NOT_ENOUGH_IN_VAULT
+  | typeof PAUSE_ERROR__RECIPIENT_IS_EMPTY
   | typeof PAUSE_ERROR__WITHDRAWAL_WAIT_TOO_LONG
   | typeof PAUSE_ERROR__WITHDRAWAL_WAIT_TOO_SHORT;
 
 let pauseErrorMessages: Record<PauseError, string> | undefined;
 if (process.env.NODE_ENV !== "production") {
   pauseErrorMessages = {
+    [PAUSE_ERROR__AMOUNT_BELOW_MINIMUM]: `The amount is below the smallest amount Solana lets a new address hold.`,
     [PAUSE_ERROR__AMOUNT_IS_ZERO]: `The amount must be more than 0.`,
     [PAUSE_ERROR__GUARDIAN_IS_EMPTY]: `The guardian address is empty.`,
     [PAUSE_ERROR__GUARDIAN_IS_OWNER]: `The guardian can't be the owner's own wallet.`,
     [PAUSE_ERROR__GUARDIAN_WAIT_TOO_LONG]: `The guardian change wait is longer than 14 days.`,
     [PAUSE_ERROR__GUARDIAN_WAIT_TOO_SHORT]: `The guardian change wait is shorter than the minimum.`,
+    [PAUSE_ERROR__MATH_OVERFLOW]: `A number got too large.`,
+    [PAUSE_ERROR__NOT_ENOUGH_IN_VAULT]: `The vault doesn't have enough SOL that isn't already waiting to leave.`,
+    [PAUSE_ERROR__RECIPIENT_IS_EMPTY]: `The recipient address is empty.`,
     [PAUSE_ERROR__WITHDRAWAL_WAIT_TOO_LONG]: `The withdrawal wait is longer than 7 days.`,
     [PAUSE_ERROR__WITHDRAWAL_WAIT_TOO_SHORT]: `The withdrawal wait is shorter than the minimum.`,
   };

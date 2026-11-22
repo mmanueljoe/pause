@@ -7,3 +7,4 @@
  */
 
 export * from "./vault";
+export * from "./withdrawal";
