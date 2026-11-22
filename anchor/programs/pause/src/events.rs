@@ -21,3 +21,13 @@ pub struct Deposited {
     /// The vault's balance after the deposit (SOL above the rent minimum).
     pub balance_lamports: u64,
 }
+
+#[event]
+pub struct WithdrawalRequested {
+    pub vault: Pubkey,
+    pub withdrawal: Pubkey,
+    pub id: u64,
+    pub recipient: Pubkey,
+    pub amount_lamports: u64,
+    pub release_at: i64,
+}

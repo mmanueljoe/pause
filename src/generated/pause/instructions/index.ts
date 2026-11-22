@@ -8,3 +8,4 @@
 
 export * from "./createVault";
 export * from "./deposit";
+export * from "./requestWithdrawal";

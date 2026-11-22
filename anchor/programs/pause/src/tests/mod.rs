@@ -3,6 +3,7 @@
 
 mod create_vault;
 mod deposit;
+mod request_withdrawal;
 
 use anchor_lang::{AccountDeserialize, InstructionData, ToAccountMetas};
 use litesvm::LiteSVM;
@@ -14,8 +15,8 @@ use solana_sdk::{
     transaction::{Transaction, TransactionError},
 };
 
-use crate::constants::VAULT_SEED;
-use crate::state::Vault;
+use crate::constants::{VAULT_SEED, WITHDRAWAL_SEED};
+use crate::state::{Vault, Withdrawal};
 use crate::ID as PROGRAM_ID;
 
 pub const LAMPORTS_PER_SOL: u64 = 1_000_000_000;
@@ -155,4 +156,67 @@ pub fn deposit_ix(signer: &Pubkey, vault: Pubkey, amount_lamports: u64) -> Instr
         .to_account_metas(None),
         data: crate::instruction::Deposit { amount_lamports }.data(),
     }
+}
+
+pub fn withdrawal_address(vault: &Pubkey, id: u64) -> Pubkey {
+    Pubkey::find_program_address(
+        &[WITHDRAWAL_SEED, vault.as_ref(), &id.to_le_bytes()],
+        &PROGRAM_ID,
+    )
+    .0
+}
+
+pub fn read_withdrawal(svm: &LiteSVM, vault: &Pubkey, id: u64) -> Withdrawal {
+    let account = svm
+        .get_account(&withdrawal_address(vault, id))
+        .expect("withdrawal exists");
+    Withdrawal::try_deserialize(&mut account.data.as_slice()).unwrap()
+}
+
+/// Sets the chain's clock to `unix_timestamp` (seconds).
+pub fn set_time(svm: &mut LiteSVM, unix_timestamp: i64) {
+    let mut clock = svm.get_sysvar::<solana_sdk::clock::Clock>();
+    clock.unix_timestamp = unix_timestamp;
+    svm.set_sysvar(&clock);
+}
+
+/// A withdrawal request signed by `signer`, from the vault at `vault`,
+/// creating the record with number `id`.
+pub fn request_withdrawal_ix(
+    signer: &Pubkey,
+    vault: Pubkey,
+    id: u64,
+    recipient: Pubkey,
+    amount_lamports: u64,
+) -> Instruction {
+    Instruction {
+        program_id: PROGRAM_ID,
+        accounts: crate::accounts::RequestWithdrawal {
+            owner: *signer,
+            vault,
+            withdrawal: withdrawal_address(&vault, id),
+            system_program: anchor_lang::system_program::ID,
+            event_authority: event_authority(),
+            program: PROGRAM_ID,
+        }
+        .to_account_metas(None),
+        data: crate::instruction::RequestWithdrawal {
+            recipient,
+            amount_lamports,
+        }
+        .data(),
+    }
+}
+
+/// An owner with a vault holding `sol` SOL, and their guardian.
+pub fn owner_with_funded_vault(svm: &mut LiteSVM, sol: u64) -> (Keypair, Keypair) {
+    let (owner, guardian) = owner_with_vault(svm);
+    let vault = vault_address(&owner.pubkey());
+    send(
+        svm,
+        deposit_ix(&owner.pubkey(), vault, sol * LAMPORTS_PER_SOL),
+        &owner,
+    )
+    .unwrap();
+    (owner, guardian)
 }
