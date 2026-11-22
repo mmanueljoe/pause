@@ -164,3 +164,13 @@ fn withdrawal_to_the_empty_address_is_refused() {
     let ix = request_withdrawal_ix(&owner.pubkey(), vault, 0, Pubkey::default(), SOL);
     assert_pause_error(send(&mut svm, ix, &owner), PauseError::RecipientIsEmpty);
 }
+
+#[test]
+fn withdrawal_to_the_vault_itself_is_refused() {
+    let mut svm = setup();
+    let (owner, _guardian) = owner_with_funded_vault(&mut svm, 5);
+    let vault = vault_address(&owner.pubkey());
+
+    let ix = request_withdrawal_ix(&owner.pubkey(), vault, 0, vault, SOL);
+    assert_pause_error(send(&mut svm, ix, &owner), PauseError::RecipientNotAllowed);
+}

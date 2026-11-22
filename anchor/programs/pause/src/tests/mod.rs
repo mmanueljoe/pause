@@ -4,6 +4,7 @@
 mod create_vault;
 mod deposit;
 mod request_withdrawal;
+mod stop_approve_release;
 
 use anchor_lang::{AccountDeserialize, InstructionData, ToAccountMetas};
 use litesvm::LiteSVM;
@@ -219,4 +220,61 @@ pub fn owner_with_funded_vault(svm: &mut LiteSVM, sol: u64) -> (Keypair, Keypair
     )
     .unwrap();
     (owner, guardian)
+}
+
+pub fn stop_ix(signer: &Pubkey, vault: Pubkey, id: u64) -> Instruction {
+    Instruction {
+        program_id: PROGRAM_ID,
+        accounts: crate::accounts::StopWithdrawal {
+            authority: *signer,
+            vault,
+            withdrawal: withdrawal_address(&vault, id),
+            event_authority: event_authority(),
+            program: PROGRAM_ID,
+        }
+        .to_account_metas(None),
+        data: crate::instruction::StopWithdrawal {}.data(),
+    }
+}
+
+pub fn approve_ix(signer: &Pubkey, vault: Pubkey, id: u64, recipient: Pubkey) -> Instruction {
+    Instruction {
+        program_id: PROGRAM_ID,
+        accounts: crate::accounts::ApproveWithdrawal {
+            guardian: *signer,
+            vault,
+            withdrawal: withdrawal_address(&vault, id),
+            recipient,
+            event_authority: event_authority(),
+            program: PROGRAM_ID,
+        }
+        .to_account_metas(None),
+        data: crate::instruction::ApproveWithdrawal {}.data(),
+    }
+}
+
+pub fn release_ix(vault: Pubkey, id: u64, recipient: Pubkey) -> Instruction {
+    Instruction {
+        program_id: PROGRAM_ID,
+        accounts: crate::accounts::ReleaseWithdrawal {
+            vault,
+            withdrawal: withdrawal_address(&vault, id),
+            recipient,
+            event_authority: event_authority(),
+            program: PROGRAM_ID,
+        }
+        .to_account_metas(None),
+        data: crate::instruction::ReleaseWithdrawal {}.data(),
+    }
+}
+
+pub fn lamports_of(svm: &LiteSVM, address: &Pubkey) -> u64 {
+    svm.get_account(address)
+        .map_or(0, |account| account.lamports)
+}
+
+/// The owner's money in a vault: its SOL minus the rent minimum.
+pub fn vault_balance(svm: &LiteSVM, vault: &Pubkey) -> u64 {
+    let account = svm.get_account(vault).expect("vault exists");
+    account.lamports - svm.minimum_balance_for_rent_exemption(account.data.len())
 }

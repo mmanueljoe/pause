@@ -31,3 +31,31 @@ pub struct WithdrawalRequested {
     pub amount_lamports: u64,
     pub release_at: i64,
 }
+
+#[event]
+pub struct WithdrawalStopped {
+    pub vault: Pubkey,
+    pub withdrawal: Pubkey,
+    pub id: u64,
+    /// The owner or the guardian.
+    pub stopped_by: Pubkey,
+}
+
+#[event]
+pub struct WithdrawalApproved {
+    pub vault: Pubkey,
+    pub withdrawal: Pubkey,
+    pub id: u64,
+    pub guardian: Pubkey,
+    pub recipient: Pubkey,
+    pub amount_lamports: u64,
+}
+
+#[event]
+pub struct WithdrawalReleased {
+    pub vault: Pubkey,
+    pub withdrawal: Pubkey,
+    pub id: u64,
+    pub recipient: Pubkey,
+    pub amount_lamports: u64,
+}

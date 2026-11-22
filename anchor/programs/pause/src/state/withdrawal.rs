@@ -1,5 +1,7 @@
 use anchor_lang::prelude::*;
 
+use crate::errors::PauseError;
+
 /// One per withdrawal request. Holds the record only; the SOL stays in the
 /// vault until release. Kept after it finishes, so it doubles as history.
 /// Address: PDA from `["withdrawal", vault, id]`.
@@ -43,4 +45,38 @@ pub enum WithdrawalStatus {
     ApprovedEarly {
         at: i64,
     },
+}
+
+impl Withdrawal {
+    /// Owner or guardian stops it. Allowed until the money has actually left,
+    /// even after `release_at` (e.g. if the automatic release is late), so a
+    /// guardian can still save money that is still in the vault.
+    pub fn stop(&mut self, by: Pubkey, now: i64) -> Result<()> {
+        self.status = match self.status {
+            WithdrawalStatus::Waiting => WithdrawalStatus::Stopped { by, at: now },
+            _ => return err!(PauseError::NotWaiting),
+        };
+        Ok(())
+    }
+
+    /// Guardian approves it early. Allowed any time while it is waiting.
+    pub fn approve_early(&mut self, now: i64) -> Result<()> {
+        self.status = match self.status {
+            WithdrawalStatus::Waiting => WithdrawalStatus::ApprovedEarly { at: now },
+            _ => return err!(PauseError::NotWaiting),
+        };
+        Ok(())
+    }
+
+    /// Released after the wait. Only once `release_at` has passed.
+    pub fn release(&mut self, now: i64) -> Result<()> {
+        self.status = match self.status {
+            WithdrawalStatus::Waiting => {
+                require!(now >= self.release_at, PauseError::TooEarly);
+                WithdrawalStatus::Released { at: now }
+            }
+            _ => return err!(PauseError::NotWaiting),
+        };
+        Ok(())
+    }
 }

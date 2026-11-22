@@ -55,4 +55,21 @@ pub mod pause {
     ) -> Result<()> {
         instructions::request_withdrawal::handle_request_withdrawal(ctx, recipient, amount_lamports)
     }
+
+    /// Owner or guardian stops a waiting withdrawal. The money stays in the vault.
+    pub fn stop_withdrawal(ctx: Context<StopWithdrawal>) -> Result<()> {
+        instructions::stop_withdrawal::handle_stop_withdrawal(ctx)
+    }
+
+    /// Guardian approves a waiting withdrawal early; it is sent immediately.
+    /// Only the guardian can skip the wait (core rule 4).
+    pub fn approve_withdrawal(ctx: Context<ApproveWithdrawal>) -> Result<()> {
+        instructions::approve_withdrawal::handle_approve_withdrawal(ctx)
+    }
+
+    /// Anyone sends a withdrawal to its named recipient once the wait has ended
+    /// (core rule 6). This is how the backend releases automatically.
+    pub fn release_withdrawal(ctx: Context<ReleaseWithdrawal>) -> Result<()> {
+        instructions::release_withdrawal::handle_release_withdrawal(ctx)
+    }
 }

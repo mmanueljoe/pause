@@ -17,12 +17,18 @@ import {
   type ReadonlyUint8Array,
 } from "@solana/kit";
 import {
+  parseApproveWithdrawalInstruction,
   parseCreateVaultInstruction,
   parseDepositInstruction,
+  parseReleaseWithdrawalInstruction,
   parseRequestWithdrawalInstruction,
+  parseStopWithdrawalInstruction,
+  type ParsedApproveWithdrawalInstruction,
   type ParsedCreateVaultInstruction,
   type ParsedDepositInstruction,
+  type ParsedReleaseWithdrawalInstruction,
   type ParsedRequestWithdrawalInstruction,
+  type ParsedStopWithdrawalInstruction,
 } from "../instructions";
 
 export const PAUSE_PROGRAM_ADDRESS =
@@ -65,15 +71,29 @@ export function identifyPauseAccount(
 }
 
 export enum PauseInstruction {
+  ApproveWithdrawal,
   CreateVault,
   Deposit,
+  ReleaseWithdrawal,
   RequestWithdrawal,
+  StopWithdrawal,
 }
 
 export function identifyPauseInstruction(
   instruction: { data: ReadonlyUint8Array } | ReadonlyUint8Array,
 ): PauseInstruction {
   const data = "data" in instruction ? instruction.data : instruction;
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([75, 48, 146, 122, 201, 158, 210, 123]),
+      ),
+      0,
+    )
+  ) {
+    return PauseInstruction.ApproveWithdrawal;
+  }
   if (
     containsBytes(
       data,
@@ -100,12 +120,34 @@ export function identifyPauseInstruction(
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([165, 252, 155, 233, 0, 47, 81, 143]),
+      ),
+      0,
+    )
+  ) {
+    return PauseInstruction.ReleaseWithdrawal;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
         new Uint8Array([251, 85, 121, 205, 56, 201, 12, 177]),
       ),
       0,
     )
   ) {
     return PauseInstruction.RequestWithdrawal;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([127, 225, 4, 156, 193, 224, 221, 199]),
+      ),
+      0,
+    )
+  ) {
+    return PauseInstruction.StopWithdrawal;
   }
   throw new Error(
     "The provided instruction could not be identified as a pause instruction.",
@@ -116,20 +158,36 @@ export type ParsedPauseInstruction<
   TProgram extends string = "BUFdujWydbi7UA13x1EnBavq7iwNjaxip5Csuv9fjEDz",
 > =
   | ({
+      instructionType: PauseInstruction.ApproveWithdrawal;
+    } & ParsedApproveWithdrawalInstruction<TProgram>)
+  | ({
       instructionType: PauseInstruction.CreateVault;
     } & ParsedCreateVaultInstruction<TProgram>)
   | ({
       instructionType: PauseInstruction.Deposit;
     } & ParsedDepositInstruction<TProgram>)
   | ({
+      instructionType: PauseInstruction.ReleaseWithdrawal;
+    } & ParsedReleaseWithdrawalInstruction<TProgram>)
+  | ({
       instructionType: PauseInstruction.RequestWithdrawal;
-    } & ParsedRequestWithdrawalInstruction<TProgram>);
+    } & ParsedRequestWithdrawalInstruction<TProgram>)
+  | ({
+      instructionType: PauseInstruction.StopWithdrawal;
+    } & ParsedStopWithdrawalInstruction<TProgram>);
 
 export function parsePauseInstruction<TProgram extends string>(
   instruction: Instruction<TProgram> & InstructionWithData<ReadonlyUint8Array>,
 ): ParsedPauseInstruction<TProgram> {
   const instructionType = identifyPauseInstruction(instruction);
   switch (instructionType) {
+    case PauseInstruction.ApproveWithdrawal: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: PauseInstruction.ApproveWithdrawal,
+        ...parseApproveWithdrawalInstruction(instruction),
+      };
+    }
     case PauseInstruction.CreateVault: {
       assertIsInstructionWithAccounts(instruction);
       return {
@@ -144,11 +202,25 @@ export function parsePauseInstruction<TProgram extends string>(
         ...parseDepositInstruction(instruction),
       };
     }
+    case PauseInstruction.ReleaseWithdrawal: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: PauseInstruction.ReleaseWithdrawal,
+        ...parseReleaseWithdrawalInstruction(instruction),
+      };
+    }
     case PauseInstruction.RequestWithdrawal: {
       assertIsInstructionWithAccounts(instruction);
       return {
         instructionType: PauseInstruction.RequestWithdrawal,
         ...parseRequestWithdrawalInstruction(instruction),
+      };
+    }
+    case PauseInstruction.StopWithdrawal: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: PauseInstruction.StopWithdrawal,
+        ...parseStopWithdrawalInstruction(instruction),
       };
     }
     default:
