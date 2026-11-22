@@ -40,4 +40,9 @@ pub mod pause {
             guardian_wait_secs,
         )
     }
+
+    /// Owner moves SOL from their wallet into their vault. Instant.
+    pub fn deposit(ctx: Context<Deposit>, amount_lamports: u64) -> Result<()> {
+        instructions::deposit::handle_deposit(ctx, amount_lamports)
+    }
 }

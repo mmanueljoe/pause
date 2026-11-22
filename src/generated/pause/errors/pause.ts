@@ -26,8 +26,11 @@ export const PAUSE_ERROR__WITHDRAWAL_WAIT_TOO_LONG = 0x1773; // 6003
 export const PAUSE_ERROR__GUARDIAN_WAIT_TOO_SHORT = 0x1774; // 6004
 /** GuardianWaitTooLong: The guardian change wait is longer than 14 days. */
 export const PAUSE_ERROR__GUARDIAN_WAIT_TOO_LONG = 0x1775; // 6005
+/** AmountIsZero: The amount must be more than 0. */
+export const PAUSE_ERROR__AMOUNT_IS_ZERO = 0x1776; // 6006
 
 export type PauseError =
+  | typeof PAUSE_ERROR__AMOUNT_IS_ZERO
   | typeof PAUSE_ERROR__GUARDIAN_IS_EMPTY
   | typeof PAUSE_ERROR__GUARDIAN_IS_OWNER
   | typeof PAUSE_ERROR__GUARDIAN_WAIT_TOO_LONG
@@ -38,6 +41,7 @@ export type PauseError =
 let pauseErrorMessages: Record<PauseError, string> | undefined;
 if (process.env.NODE_ENV !== "production") {
   pauseErrorMessages = {
+    [PAUSE_ERROR__AMOUNT_IS_ZERO]: `The amount must be more than 0.`,
     [PAUSE_ERROR__GUARDIAN_IS_EMPTY]: `The guardian address is empty.`,
     [PAUSE_ERROR__GUARDIAN_IS_OWNER]: `The guardian can't be the owner's own wallet.`,
     [PAUSE_ERROR__GUARDIAN_WAIT_TOO_LONG]: `The guardian change wait is longer than 14 days.`,

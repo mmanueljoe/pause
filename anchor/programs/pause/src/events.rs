@@ -12,3 +12,12 @@ pub struct VaultCreated {
     pub withdrawal_wait_secs: i64,
     pub guardian_wait_secs: i64,
 }
+
+#[event]
+pub struct Deposited {
+    pub vault: Pubkey,
+    pub owner: Pubkey,
+    pub amount_lamports: u64,
+    /// The vault's balance after the deposit (SOL above the rent minimum).
+    pub balance_lamports: u64,
+}

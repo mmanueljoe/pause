@@ -12,7 +12,7 @@ You keep everyday money in your normal wallet and move savings into the vault. E
 
 ## Status
 
-The repo is set up and the tooling works. The Solana program's actions are being added one user story at a time. Done so far: create vault. See [Built before vs. during the hackathon](#built-before-vs-during-the-hackathon).
+The repo is set up and the tooling works. The Solana program's actions are being added one user story at a time. Done so far: create vault, deposit. See [Built before vs. during the hackathon](#built-before-vs-during-the-hackathon).
 
 ## Stack
 
@@ -136,6 +136,7 @@ cd .. && npm run codegen     # keep the client in sync, then commit
 
 - Repo set up for Pause: program stub with its own devnet address, website shell, tooling (ESLint, Prettier, rustfmt, Clippy, pre-commit hook), CI and this README.
 - Program: `create_vault` (US-2, US-3, US-19), with a `demo` build feature that allows 1-minute waits on devnet only.
+- Program: `deposit` (US-4).
 - _Each feature is added here as it lands._
 
 ## License

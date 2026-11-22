@@ -18,7 +18,9 @@ import {
 } from "@solana/kit";
 import {
   parseCreateVaultInstruction,
+  parseDepositInstruction,
   type ParsedCreateVaultInstruction,
+  type ParsedDepositInstruction,
 } from "../instructions";
 
 export const PAUSE_PROGRAM_ADDRESS =
@@ -50,6 +52,7 @@ export function identifyPauseAccount(
 
 export enum PauseInstruction {
   CreateVault,
+  Deposit,
 }
 
 export function identifyPauseInstruction(
@@ -67,6 +70,17 @@ export function identifyPauseInstruction(
   ) {
     return PauseInstruction.CreateVault;
   }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([242, 35, 198, 137, 82, 225, 242, 182]),
+      ),
+      0,
+    )
+  ) {
+    return PauseInstruction.Deposit;
+  }
   throw new Error(
     "The provided instruction could not be identified as a pause instruction.",
   );
@@ -74,9 +88,13 @@ export function identifyPauseInstruction(
 
 export type ParsedPauseInstruction<
   TProgram extends string = "BUFdujWydbi7UA13x1EnBavq7iwNjaxip5Csuv9fjEDz",
-> = {
-  instructionType: PauseInstruction.CreateVault;
-} & ParsedCreateVaultInstruction<TProgram>;
+> =
+  | ({
+      instructionType: PauseInstruction.CreateVault;
+    } & ParsedCreateVaultInstruction<TProgram>)
+  | ({
+      instructionType: PauseInstruction.Deposit;
+    } & ParsedDepositInstruction<TProgram>);
 
 export function parsePauseInstruction<TProgram extends string>(
   instruction: Instruction<TProgram> & InstructionWithData<ReadonlyUint8Array>,
@@ -88,6 +106,13 @@ export function parsePauseInstruction<TProgram extends string>(
       return {
         instructionType: PauseInstruction.CreateVault,
         ...parseCreateVaultInstruction(instruction),
+      };
+    }
+    case PauseInstruction.Deposit: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: PauseInstruction.Deposit,
+        ...parseDepositInstruction(instruction),
       };
     }
     default:

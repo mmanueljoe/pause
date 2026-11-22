@@ -2,6 +2,7 @@
 //! Run with `npm run program:test` (builds with the `demo` feature first).
 
 mod create_vault;
+mod deposit;
 
 use anchor_lang::{AccountDeserialize, InstructionData, ToAccountMetas};
 use litesvm::LiteSVM;
@@ -17,7 +18,7 @@ use crate::constants::VAULT_SEED;
 use crate::state::Vault;
 use crate::ID as PROGRAM_ID;
 
-const LAMPORTS_PER_SOL: u64 = 1_000_000_000;
+pub const LAMPORTS_PER_SOL: u64 = 1_000_000_000;
 
 /// A fresh test chain with the program loaded.
 pub fn setup() -> LiteSVM {
@@ -105,5 +106,53 @@ pub fn create_vault_ix(
             guardian_wait_secs,
         }
         .data(),
+    }
+}
+
+/// Asserts the transaction failed with one of Anchor's built-in checks
+/// (for example a wrong vault address, or a vault that doesn't exist).
+pub fn assert_anchor_error(
+    result: Result<(), TransactionError>,
+    expected: anchor_lang::error::ErrorCode,
+) {
+    assert_eq!(
+        result,
+        Err(TransactionError::InstructionError(
+            0,
+            InstructionError::Custom(expected as u32)
+        )),
+    );
+}
+
+/// All SOL held by the owner's vault account, including its rent minimum.
+pub fn vault_lamports(svm: &LiteSVM, owner: &Pubkey) -> u64 {
+    svm.get_account(&vault_address(owner))
+        .map_or(0, |account| account.lamports)
+}
+
+/// A funded owner with a vault (24h withdrawal wait, 3-day guardian wait),
+/// and a funded guardian.
+pub fn owner_with_vault(svm: &mut LiteSVM) -> (Keypair, Keypair) {
+    let owner = funded_wallet(svm);
+    let guardian = funded_wallet(svm);
+    let day = crate::constants::DAY_SECS;
+    let ix = create_vault_ix(&owner.pubkey(), guardian.pubkey(), day, 3 * day);
+    send(svm, ix, &owner).unwrap();
+    (owner, guardian)
+}
+
+/// Deposit signed by `signer` into the vault at `vault`.
+pub fn deposit_ix(signer: &Pubkey, vault: Pubkey, amount_lamports: u64) -> Instruction {
+    Instruction {
+        program_id: PROGRAM_ID,
+        accounts: crate::accounts::Deposit {
+            owner: *signer,
+            vault,
+            system_program: anchor_lang::system_program::ID,
+            event_authority: event_authority(),
+            program: PROGRAM_ID,
+        }
+        .to_account_metas(None),
+        data: crate::instruction::Deposit { amount_lamports }.data(),
     }
 }
