@@ -30,7 +30,7 @@ export function Countdown({
     ? "Stopped. Still in your vault."
     : leftMs <= 0
       ? "The wait is over. Sending now."
-      : `${formatDuration(Math.ceil(leftSecs / 60) * 60)} left`;
+      : `${formatDuration(Math.floor(leftSecs / 60) * 60)} left`;
 
   return (
     <div className="flex flex-col gap-3">
@@ -45,7 +45,7 @@ export function Countdown({
       </span>
       <div
         aria-hidden
-        className="h-1 w-full overflow-hidden rounded-full bg-line"
+        className="h-2 w-full overflow-hidden rounded-full bg-surface-2"
       >
         <div
           className={cx(

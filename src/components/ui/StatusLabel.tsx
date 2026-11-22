@@ -22,7 +22,7 @@ export function StatusLabel({ status, children }: StatusLabelProps) {
   return (
     <span
       className={cx(
-        "inline-flex h-7 items-center gap-2 rounded-full px-3 text-small",
+        "inline-flex items-center gap-1 rounded-full py-1 pr-3 pl-2 text-small",
         styles[status]
       )}
     >
@@ -37,26 +37,30 @@ function StatusSymbol({ status }: { status: Status }) {
     // The logo's two bars: the money is paused, not gone.
     return (
       <svg
-        viewBox="0 0 17 24"
-        className="h-3 w-2"
+        viewBox="0 0 16 16"
+        className="size-4"
         fill="currentColor"
         aria-hidden
       >
-        <rect width="6" height="24" rx="2" />
-        <rect x="11" width="6" height="24" rx="2" />
+        <rect x="4" y="3" width="3" height="10" rx="1" />
+        <rect x="9" y="3" width="3" height="10" rx="1" />
       </svg>
     );
   }
   if (status === "stopped") {
-    return <span aria-hidden className="size-2.5 rounded-[2px] bg-current" />;
+    return (
+      <span aria-hidden className="flex size-4 items-center justify-center">
+        <span className="size-2.5 rounded-[2px] bg-current" />
+      </span>
+    );
   }
-  return <Check size={14} strokeWidth={1.5} aria-hidden />;
+  return <Check size={16} strokeWidth={1.5} aria-hidden />;
 }
 
 /** Amber outline tag on recipients the vault hasn't paid before (FR-10). */
 export function NewAddressTag() {
   return (
-    <span className="inline-flex items-center rounded-full border border-waiting px-2 py-0.5 text-[0.75rem] leading-4 text-waiting">
+    <span className="inline-flex items-center rounded-full border border-waiting px-2 py-0.5 text-small text-waiting">
       New address
     </span>
   );

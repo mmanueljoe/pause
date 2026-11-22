@@ -2,7 +2,7 @@ import { Link } from "react-router";
 
 export function NotFound() {
   return (
-    <div className="mx-auto max-w-[720px] text-center">
+    <div className="mx-auto max-w-[720px] py-24 text-center">
       <h1 className="text-h1 font-semibold md:text-h1-lg">
         This page doesn't exist.
       </h1>

@@ -1,7 +1,7 @@
 import { Navigate } from "react-router";
 
 import { useRole, useWalletAddress } from "../lib/pause/hooks";
-import { Placeholder } from "./Placeholder";
+import { Landing } from "./landing/Landing";
 
 /**
  * "/": the landing page for visitors. Once a wallet is connected, sends each
@@ -12,8 +12,7 @@ export function Home() {
   const wallet = useWalletAddress();
   const { role } = useRole(wallet);
 
-  if (!wallet)
-    return <Placeholder screen={1} title="What you save. Stays yours." />;
+  if (!wallet) return <Landing />;
   if (role === null) {
     return (
       <p className="text-center text-text-2" role="status">

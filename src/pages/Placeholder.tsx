@@ -9,7 +9,7 @@ export function Placeholder({
   title: string;
 }) {
   return (
-    <Card className="mx-auto max-w-[720px]">
+    <Card className="mx-auto my-12 max-w-[720px]">
       <p className="text-label font-mono font-medium text-text-3 uppercase">
         Screen {screen}
       </p>
