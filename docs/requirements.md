@@ -524,13 +524,31 @@ Judging has two stages: every project is scored and the top 100 go through to a 
 
 The Solana track is automatic. Partner tracks and prizes are announced before kickoff; opt into any partner track only if Pause actually uses that partner.
 
+## Business model
+
+**Decided: freemium subscription.** The vault and every rule in the Solana program are free for everyone. We charge for the service our Supabase backend runs, never for access to the vault.
+
+| Free | Plus (about $4 a month) |
+| --- | --- |
+| The vault and every on-chain rule: waits, Stop, Approve now | Everything in Free |
+| Email alerts and automatic release for vaults worth up to $1,000 | Alerts and automatic release with no limit |
+| The manual Release button always works | Telegram and phone call alerts |
+
+Why this model:
+
+- The program is public, so a limit inside it could be bypassed and would hold people's money hostage. The backend is ours, so its limits can be enforced.
+- It charges for protection, not for taking out your own money (a fee per withdrawal would charge people during a rescue).
+- Running costs are about $75 a month (Supabase and a private RPC URL); roughly 20 paying users cover them.
+
+Not built for the hackathon: no payments or limits are in the program or backend yet. It is only in the pitch.
+
 ## Open decisions
 
 | Decision | Options | Who decides |
 | --- | --- | --- |
 | Product name | Keep "Pause" or choose another | Team, with designer |
 | Default values | Confirm the wait times in Core rules. There is no daily limit (decided: your normal wallet is for everyday money; a limit would let a thief take that amount instantly) | Team |
-| Business model | Monthly fee for larger vaults, or a fee per released payment (see brief) | Team |
+| Business model | **Decided:** freemium subscription. See [Business model](#business-model) | Team |
 | Alert channel | Email only, or email plus Telegram | Developer, based on time |
 | Founder-market fit | Our honest reason for building this, for the pitch and stage-2 judging | Team |
 | Partner tracks | Opt into Supabase or ElevenLabs tracks if announced and actually used | Team, after kickoff announcement |
