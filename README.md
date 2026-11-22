@@ -7,12 +7,12 @@ You keep everyday money in your normal wallet and move savings into the vault. E
 > **Unaudited prototype.** Pause runs on Solana's test network (devnet) only. Do not use real money.
 
 - Requirements (source of truth): [`docs/requirements.md`](docs/requirements.md)
-- Program address (devnet): `BUFdujWydbi7UA13x1EnBavq7iwNjaxip5Csuv9fjEDz` (not deployed yet)
+- Program address (devnet): [`BUFdujWydbi7UA13x1EnBavq7iwNjaxip5Csuv9fjEDz`](https://explorer.solana.com/address/BUFdujWydbi7UA13x1EnBavq7iwNjaxip5Csuv9fjEDz?cluster=devnet) (demo build)
 - Live website: _not deployed yet_
 
 ## Status
 
-The repo is set up and the tooling works. All program actions in the requirements are built; next: deploy to devnet, then the website and backend. See [Built before vs. during the hackathon](#built-before-vs-during-the-hackathon).
+The repo is set up and the tooling works. All program actions in the requirements are built and deployed to devnet; next: the website and backend. See [Built before vs. during the hackathon](#built-before-vs-during-the-hackathon).
 
 ## Stack
 
@@ -95,16 +95,22 @@ The website talks to Solana through an RPC URL. With `VITE_SOLANA_RPC_URL` empty
 
 ## Deploying the program to devnet
 
-The program address comes from a keypair file, `anchor/target/deploy/pause-keypair.json`. Whoever holds that file controls upgrades to the program at that address. It is **not** in git.
+The program is deployed and **upgradeable**: new versions go to the same address.
 
-- **Deployer only:** keep that file and a backup of it somewhere safe (a password manager, not the repo).
-- **Everyone else:** you don't need it. Builds use `--ignore-keys`, so they keep the address in `declare_id!` and don't create a new one.
+- **Upgrade authority:** the deployer's CLI wallet (`~/.config/solana/id.json`). Only that wallet can upgrade the program. Keep its recovery phrase backed up; it is **not** in git.
+- **`anchor/target/deploy/pause-keypair.json`** only fixed the address at the first deploy. It isn't needed for upgrades, and it is not in git.
+- **Everyone else:** you don't need either. Builds use `--ignore-keys`, so they keep the address in `declare_id!`.
+
+To ship a new version (deployer only):
 
 ```bash
-npm run program:test         # everything passes first
-cd anchor && anchor deploy   # needs ~2 devnet SOL in your CLI wallet
-cd .. && npm run codegen     # keep the client in sync, then commit
+npm run program:test   # builds the demo version and runs every test
+solana program deploy anchor/target/deploy/pause.so \
+  --program-id anchor/target/deploy/pause-keypair.json --url devnet
+npm run codegen        # keep the client in sync, then commit
 ```
+
+The first deploy reserved 600,000 bytes (`--max-len`), about twice the program's size, so upgrades fit without extra steps. Changing an account's fields means vaults created before the change can't be read; on devnet, create new test vaults.
 
 ## Code quality and CI
 
@@ -140,6 +146,7 @@ cd .. && npm run codegen     # keep the client in sync, then commit
 - Program: `request_withdrawal` and the `Withdrawal` account (US-5, US-15).
 - Program: `stop_withdrawal`, `approve_withdrawal`, `release_withdrawal` (US-8, US-8a, US-8b, US-9, US-18).
 - Program: `change_withdrawal_wait`, `propose_guardian_change`, `apply_change`, `cancel_change` (US-10, US-11, US-16, US-17, US-19).
+- Program deployed to devnet (demo build).
 - _Each feature is added here as it lands._
 
 ## License
