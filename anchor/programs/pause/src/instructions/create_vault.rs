@@ -46,6 +46,7 @@ pub fn handle_create_vault(
         next_withdrawal_id: 0,
         bump: ctx.bumps.vault,
         _reserved: [0; 64],
+        pending_change: None,
     });
 
     emit_cpi!(VaultCreated {

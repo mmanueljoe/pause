@@ -24,6 +24,27 @@ pub struct Vault {
     pub bump: u8,
     /// Empty space so fields can be added later without breaking existing vaults.
     pub _reserved: [u8; 64],
+    /// A less-safe change that is waiting, if any. One at a time.
+    /// Last because its size varies (None is smaller than Some).
+    pub pending_change: Option<PendingChange>,
+}
+
+/// A less-safe settings change that waits `guardian_wait_secs` before it can
+/// be applied, so the guardian has time to cancel it.
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, Debug, InitSpace)]
+pub struct PendingChange {
+    pub kind: ChangeKind,
+    pub proposed_at: i64,
+    /// Earliest time `apply_change` can make it real.
+    pub apply_after: i64,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, Debug, InitSpace)]
+pub enum ChangeKind {
+    /// `Some` = change to (or add) this guardian, `None` = remove the guardian.
+    Guardian { new_guardian: Option<Pubkey> },
+    /// A shorter withdrawal wait (longer ones apply at once).
+    WithdrawalWait { new_wait_secs: i64 },
 }
 
 impl Vault {
@@ -70,6 +91,41 @@ impl Vault {
             PauseError::VaultInvariantBroken
         );
         Ok(())
+    }
+
+    /// Starts waiting on a less-safe change. Refused if one is already waiting.
+    pub fn propose_change(&mut self, kind: ChangeKind, now: i64) -> Result<PendingChange> {
+        require!(self.pending_change.is_none(), PauseError::ChangePending);
+        let change = PendingChange {
+            kind,
+            proposed_at: now,
+            apply_after: now
+                .checked_add(self.guardian_wait_secs)
+                .ok_or(PauseError::MathOverflow)?,
+        };
+        self.pending_change = Some(change);
+        Ok(change)
+    }
+
+    /// Makes the waiting change real, once its wait has ended.
+    pub fn apply_pending_change(&mut self, now: i64) -> Result<PendingChange> {
+        let change = self.pending_change.ok_or(PauseError::NoPendingChange)?;
+        require!(now >= change.apply_after, PauseError::TooEarly);
+        match change.kind {
+            ChangeKind::Guardian { new_guardian } => self.guardian = new_guardian,
+            ChangeKind::WithdrawalWait { new_wait_secs } => {
+                self.withdrawal_wait_secs = new_wait_secs;
+            }
+        }
+        self.pending_change = None;
+        Ok(change)
+    }
+
+    /// Drops the waiting change without applying it.
+    pub fn cancel_pending_change(&mut self) -> Result<PendingChange> {
+        let change = self.pending_change.ok_or(PauseError::NoPendingChange)?;
+        self.pending_change = None;
+        Ok(change)
     }
 
     /// A guardian must be a real wallet that isn't the owner's.

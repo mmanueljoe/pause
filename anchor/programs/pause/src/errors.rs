@@ -41,4 +41,12 @@ pub enum PauseError {
     RecipientNotAllowed,
     #[msg("The vault would hold less than it owes to waiting withdrawals.")]
     VaultInvariantBroken,
+    #[msg("Another change is already waiting. Apply or cancel it first.")]
+    ChangePending,
+    #[msg("There is no waiting change.")]
+    NoPendingChange,
+    #[msg("That is already the current setting.")]
+    NoChange,
+    #[msg("The vault has no guardian to remove.")]
+    NoGuardianToRemove,
 }

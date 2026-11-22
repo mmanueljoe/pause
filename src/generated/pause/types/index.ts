@@ -6,4 +6,6 @@
  * @see https://github.com/codama-idl/codama
  */
 
+export * from "./changeKind";
+export * from "./pendingChange";
 export * from "./withdrawalStatus";
