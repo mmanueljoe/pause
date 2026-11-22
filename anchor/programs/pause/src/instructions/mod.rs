@@ -1,13 +1,21 @@
+pub mod apply_change;
 pub mod approve_withdrawal;
+pub mod cancel_change;
+pub mod change_withdrawal_wait;
 pub mod create_vault;
 pub mod deposit;
+pub mod propose_guardian_change;
 pub mod release_withdrawal;
 pub mod request_withdrawal;
 pub mod stop_withdrawal;
 
+pub use apply_change::*;
 pub use approve_withdrawal::*;
+pub use cancel_change::*;
+pub use change_withdrawal_wait::*;
 pub use create_vault::*;
 pub use deposit::*;
+pub use propose_guardian_change::*;
 pub use release_withdrawal::*;
 pub use request_withdrawal::*;
 pub use stop_withdrawal::*;

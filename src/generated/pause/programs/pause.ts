@@ -17,15 +17,23 @@ import {
   type ReadonlyUint8Array,
 } from "@solana/kit";
 import {
+  parseApplyChangeInstruction,
   parseApproveWithdrawalInstruction,
+  parseCancelChangeInstruction,
+  parseChangeWithdrawalWaitInstruction,
   parseCreateVaultInstruction,
   parseDepositInstruction,
+  parseProposeGuardianChangeInstruction,
   parseReleaseWithdrawalInstruction,
   parseRequestWithdrawalInstruction,
   parseStopWithdrawalInstruction,
+  type ParsedApplyChangeInstruction,
   type ParsedApproveWithdrawalInstruction,
+  type ParsedCancelChangeInstruction,
+  type ParsedChangeWithdrawalWaitInstruction,
   type ParsedCreateVaultInstruction,
   type ParsedDepositInstruction,
+  type ParsedProposeGuardianChangeInstruction,
   type ParsedReleaseWithdrawalInstruction,
   type ParsedRequestWithdrawalInstruction,
   type ParsedStopWithdrawalInstruction,
@@ -71,9 +79,13 @@ export function identifyPauseAccount(
 }
 
 export enum PauseInstruction {
+  ApplyChange,
   ApproveWithdrawal,
+  CancelChange,
+  ChangeWithdrawalWait,
   CreateVault,
   Deposit,
+  ProposeGuardianChange,
   ReleaseWithdrawal,
   RequestWithdrawal,
   StopWithdrawal,
@@ -87,12 +99,45 @@ export function identifyPauseInstruction(
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([248, 177, 9, 41, 50, 98, 255, 50]),
+      ),
+      0,
+    )
+  ) {
+    return PauseInstruction.ApplyChange;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
         new Uint8Array([75, 48, 146, 122, 201, 158, 210, 123]),
       ),
       0,
     )
   ) {
     return PauseInstruction.ApproveWithdrawal;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([100, 30, 4, 148, 3, 244, 243, 168]),
+      ),
+      0,
+    )
+  ) {
+    return PauseInstruction.CancelChange;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([23, 42, 9, 73, 134, 157, 3, 10]),
+      ),
+      0,
+    )
+  ) {
+    return PauseInstruction.ChangeWithdrawalWait;
   }
   if (
     containsBytes(
@@ -115,6 +160,17 @@ export function identifyPauseInstruction(
     )
   ) {
     return PauseInstruction.Deposit;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([236, 28, 48, 25, 179, 178, 100, 230]),
+      ),
+      0,
+    )
+  ) {
+    return PauseInstruction.ProposeGuardianChange;
   }
   if (
     containsBytes(
@@ -158,14 +214,26 @@ export type ParsedPauseInstruction<
   TProgram extends string = "BUFdujWydbi7UA13x1EnBavq7iwNjaxip5Csuv9fjEDz",
 > =
   | ({
+      instructionType: PauseInstruction.ApplyChange;
+    } & ParsedApplyChangeInstruction<TProgram>)
+  | ({
       instructionType: PauseInstruction.ApproveWithdrawal;
     } & ParsedApproveWithdrawalInstruction<TProgram>)
+  | ({
+      instructionType: PauseInstruction.CancelChange;
+    } & ParsedCancelChangeInstruction<TProgram>)
+  | ({
+      instructionType: PauseInstruction.ChangeWithdrawalWait;
+    } & ParsedChangeWithdrawalWaitInstruction<TProgram>)
   | ({
       instructionType: PauseInstruction.CreateVault;
     } & ParsedCreateVaultInstruction<TProgram>)
   | ({
       instructionType: PauseInstruction.Deposit;
     } & ParsedDepositInstruction<TProgram>)
+  | ({
+      instructionType: PauseInstruction.ProposeGuardianChange;
+    } & ParsedProposeGuardianChangeInstruction<TProgram>)
   | ({
       instructionType: PauseInstruction.ReleaseWithdrawal;
     } & ParsedReleaseWithdrawalInstruction<TProgram>)
@@ -181,11 +249,32 @@ export function parsePauseInstruction<TProgram extends string>(
 ): ParsedPauseInstruction<TProgram> {
   const instructionType = identifyPauseInstruction(instruction);
   switch (instructionType) {
+    case PauseInstruction.ApplyChange: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: PauseInstruction.ApplyChange,
+        ...parseApplyChangeInstruction(instruction),
+      };
+    }
     case PauseInstruction.ApproveWithdrawal: {
       assertIsInstructionWithAccounts(instruction);
       return {
         instructionType: PauseInstruction.ApproveWithdrawal,
         ...parseApproveWithdrawalInstruction(instruction),
+      };
+    }
+    case PauseInstruction.CancelChange: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: PauseInstruction.CancelChange,
+        ...parseCancelChangeInstruction(instruction),
+      };
+    }
+    case PauseInstruction.ChangeWithdrawalWait: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: PauseInstruction.ChangeWithdrawalWait,
+        ...parseChangeWithdrawalWaitInstruction(instruction),
       };
     }
     case PauseInstruction.CreateVault: {
@@ -200,6 +289,13 @@ export function parsePauseInstruction<TProgram extends string>(
       return {
         instructionType: PauseInstruction.Deposit,
         ...parseDepositInstruction(instruction),
+      };
+    }
+    case PauseInstruction.ProposeGuardianChange: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: PauseInstruction.ProposeGuardianChange,
+        ...parseProposeGuardianChangeInstruction(instruction),
       };
     }
     case PauseInstruction.ReleaseWithdrawal: {

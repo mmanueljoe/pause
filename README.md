@@ -12,7 +12,7 @@ You keep everyday money in your normal wallet and move savings into the vault. E
 
 ## Status
 
-The repo is set up and the tooling works. The Solana program's actions are being added one user story at a time. Done so far: create vault, deposit, request withdrawal, stop, approve now, release. See [Built before vs. during the hackathon](#built-before-vs-during-the-hackathon).
+The repo is set up and the tooling works. All program actions in the requirements are built; next: deploy to devnet, then the website and backend. See [Built before vs. during the hackathon](#built-before-vs-during-the-hackathon).
 
 ## Stack
 
@@ -139,6 +139,7 @@ cd .. && npm run codegen     # keep the client in sync, then commit
 - Program: `deposit` (US-4).
 - Program: `request_withdrawal` and the `Withdrawal` account (US-5, US-15).
 - Program: `stop_withdrawal`, `approve_withdrawal`, `release_withdrawal` (US-8, US-8a, US-8b, US-9, US-18).
+- Program: `change_withdrawal_wait`, `propose_guardian_change`, `apply_change`, `cancel_change` (US-10, US-11, US-16, US-17, US-19).
 - _Each feature is added here as it lands._
 
 ## License

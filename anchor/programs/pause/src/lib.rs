@@ -72,4 +72,32 @@ pub mod pause {
     pub fn release_withdrawal(ctx: Context<ReleaseWithdrawal>) -> Result<()> {
         instructions::release_withdrawal::handle_release_withdrawal(ctx)
     }
+
+    /// Owner changes the withdrawal wait. Longer applies at once; shorter
+    /// waits the guardian wait and can be cancelled (core rules 8, 9, 11).
+    pub fn change_withdrawal_wait(
+        ctx: Context<ChangeWithdrawalWait>,
+        new_wait_secs: i64,
+    ) -> Result<()> {
+        instructions::change_withdrawal_wait::handle_change_withdrawal_wait(ctx, new_wait_secs)
+    }
+
+    /// Owner proposes a new guardian (`Some`) or removing the guardian (`None`).
+    /// Always waits, including adding one to a vault without one (core rule 10).
+    pub fn propose_guardian_change(
+        ctx: Context<ProposeGuardianChange>,
+        new_guardian: Option<Pubkey>,
+    ) -> Result<()> {
+        instructions::propose_guardian_change::handle_propose_guardian_change(ctx, new_guardian)
+    }
+
+    /// Anyone makes the waiting change real once its wait has ended.
+    pub fn apply_change(ctx: Context<ApplyChange>) -> Result<()> {
+        instructions::apply_change::handle_apply_change(ctx)
+    }
+
+    /// Owner or current guardian cancels the waiting change.
+    pub fn cancel_change(ctx: Context<CancelChange>) -> Result<()> {
+        instructions::cancel_change::handle_cancel_change(ctx)
+    }
 }

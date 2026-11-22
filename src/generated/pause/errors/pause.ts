@@ -50,15 +50,27 @@ export const PAUSE_ERROR__WRONG_RECIPIENT = 0x177f; // 6015
 export const PAUSE_ERROR__RECIPIENT_NOT_ALLOWED = 0x1780; // 6016
 /** VaultInvariantBroken: The vault would hold less than it owes to waiting withdrawals. */
 export const PAUSE_ERROR__VAULT_INVARIANT_BROKEN = 0x1781; // 6017
+/** ChangePending: Another change is already waiting. Apply or cancel it first. */
+export const PAUSE_ERROR__CHANGE_PENDING = 0x1782; // 6018
+/** NoPendingChange: There is no waiting change. */
+export const PAUSE_ERROR__NO_PENDING_CHANGE = 0x1783; // 6019
+/** NoChange: That is already the current setting. */
+export const PAUSE_ERROR__NO_CHANGE = 0x1784; // 6020
+/** NoGuardianToRemove: The vault has no guardian to remove. */
+export const PAUSE_ERROR__NO_GUARDIAN_TO_REMOVE = 0x1785; // 6021
 
 export type PauseError =
   | typeof PAUSE_ERROR__AMOUNT_BELOW_MINIMUM
   | typeof PAUSE_ERROR__AMOUNT_IS_ZERO
+  | typeof PAUSE_ERROR__CHANGE_PENDING
   | typeof PAUSE_ERROR__GUARDIAN_IS_EMPTY
   | typeof PAUSE_ERROR__GUARDIAN_IS_OWNER
   | typeof PAUSE_ERROR__GUARDIAN_WAIT_TOO_LONG
   | typeof PAUSE_ERROR__GUARDIAN_WAIT_TOO_SHORT
   | typeof PAUSE_ERROR__MATH_OVERFLOW
+  | typeof PAUSE_ERROR__NO_CHANGE
+  | typeof PAUSE_ERROR__NO_GUARDIAN_TO_REMOVE
+  | typeof PAUSE_ERROR__NO_PENDING_CHANGE
   | typeof PAUSE_ERROR__NOT_ENOUGH_IN_VAULT
   | typeof PAUSE_ERROR__NOT_GUARDIAN
   | typeof PAUSE_ERROR__NOT_OWNER_OR_GUARDIAN
@@ -76,11 +88,15 @@ if (process.env.NODE_ENV !== "production") {
   pauseErrorMessages = {
     [PAUSE_ERROR__AMOUNT_BELOW_MINIMUM]: `The amount is below the smallest amount Solana lets a new address hold.`,
     [PAUSE_ERROR__AMOUNT_IS_ZERO]: `The amount must be more than 0.`,
+    [PAUSE_ERROR__CHANGE_PENDING]: `Another change is already waiting. Apply or cancel it first.`,
     [PAUSE_ERROR__GUARDIAN_IS_EMPTY]: `The guardian address is empty.`,
     [PAUSE_ERROR__GUARDIAN_IS_OWNER]: `The guardian can't be the owner's own wallet.`,
     [PAUSE_ERROR__GUARDIAN_WAIT_TOO_LONG]: `The guardian change wait is longer than 14 days.`,
     [PAUSE_ERROR__GUARDIAN_WAIT_TOO_SHORT]: `The guardian change wait is shorter than the minimum.`,
     [PAUSE_ERROR__MATH_OVERFLOW]: `A number got too large.`,
+    [PAUSE_ERROR__NO_CHANGE]: `That is already the current setting.`,
+    [PAUSE_ERROR__NO_GUARDIAN_TO_REMOVE]: `The vault has no guardian to remove.`,
+    [PAUSE_ERROR__NO_PENDING_CHANGE]: `There is no waiting change.`,
     [PAUSE_ERROR__NOT_ENOUGH_IN_VAULT]: `The vault doesn't have enough SOL that isn't already waiting to leave.`,
     [PAUSE_ERROR__NOT_GUARDIAN]: `Only the guardian can do this.`,
     [PAUSE_ERROR__NOT_OWNER_OR_GUARDIAN]: `Only the owner or the guardian can do this.`,

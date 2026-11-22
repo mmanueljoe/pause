@@ -4,6 +4,7 @@
 mod create_vault;
 mod deposit;
 mod request_withdrawal;
+mod settings;
 mod stop_approve_release;
 
 use anchor_lang::{AccountDeserialize, InstructionData, ToAccountMetas};
@@ -277,4 +278,63 @@ pub fn lamports_of(svm: &LiteSVM, address: &Pubkey) -> u64 {
 pub fn vault_balance(svm: &LiteSVM, vault: &Pubkey) -> u64 {
     let account = svm.get_account(vault).expect("vault exists");
     account.lamports - svm.minimum_balance_for_rent_exemption(account.data.len())
+}
+
+pub fn change_wait_ix(signer: &Pubkey, vault: Pubkey, new_wait_secs: i64) -> Instruction {
+    Instruction {
+        program_id: PROGRAM_ID,
+        accounts: crate::accounts::ChangeWithdrawalWait {
+            owner: *signer,
+            vault,
+            event_authority: event_authority(),
+            program: PROGRAM_ID,
+        }
+        .to_account_metas(None),
+        data: crate::instruction::ChangeWithdrawalWait { new_wait_secs }.data(),
+    }
+}
+
+pub fn propose_guardian_ix(
+    signer: &Pubkey,
+    vault: Pubkey,
+    new_guardian: Option<Pubkey>,
+) -> Instruction {
+    Instruction {
+        program_id: PROGRAM_ID,
+        accounts: crate::accounts::ProposeGuardianChange {
+            owner: *signer,
+            vault,
+            event_authority: event_authority(),
+            program: PROGRAM_ID,
+        }
+        .to_account_metas(None),
+        data: crate::instruction::ProposeGuardianChange { new_guardian }.data(),
+    }
+}
+
+pub fn apply_change_ix(vault: Pubkey) -> Instruction {
+    Instruction {
+        program_id: PROGRAM_ID,
+        accounts: crate::accounts::ApplyChange {
+            vault,
+            event_authority: event_authority(),
+            program: PROGRAM_ID,
+        }
+        .to_account_metas(None),
+        data: crate::instruction::ApplyChange {}.data(),
+    }
+}
+
+pub fn cancel_change_ix(signer: &Pubkey, vault: Pubkey) -> Instruction {
+    Instruction {
+        program_id: PROGRAM_ID,
+        accounts: crate::accounts::CancelChange {
+            authority: *signer,
+            vault,
+            event_authority: event_authority(),
+            program: PROGRAM_ID,
+        }
+        .to_account_metas(None),
+        data: crate::instruction::CancelChange {}.data(),
+    }
 }

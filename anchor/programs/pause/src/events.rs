@@ -4,6 +4,8 @@
 
 use anchor_lang::prelude::*;
 
+use crate::state::ChangeKind;
+
 #[event]
 pub struct VaultCreated {
     pub vault: Pubkey,
@@ -58,4 +60,34 @@ pub struct WithdrawalReleased {
     pub id: u64,
     pub recipient: Pubkey,
     pub amount_lamports: u64,
+}
+
+/// A longer withdrawal wait, applied at once (safer changes don't wait).
+#[event]
+pub struct WithdrawalWaitChanged {
+    pub vault: Pubkey,
+    pub old_wait_secs: i64,
+    pub new_wait_secs: i64,
+}
+
+/// A less-safe change started waiting. Always an urgent alert.
+#[event]
+pub struct ChangeProposed {
+    pub vault: Pubkey,
+    pub kind: ChangeKind,
+    pub apply_after: i64,
+}
+
+#[event]
+pub struct ChangeApplied {
+    pub vault: Pubkey,
+    pub kind: ChangeKind,
+}
+
+#[event]
+pub struct ChangeCancelled {
+    pub vault: Pubkey,
+    pub kind: ChangeKind,
+    /// The owner or the guardian.
+    pub cancelled_by: Pubkey,
 }

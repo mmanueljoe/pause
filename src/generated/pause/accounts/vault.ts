@@ -44,6 +44,12 @@ import {
   type OptionOrNullable,
   type ReadonlyUint8Array,
 } from "@solana/kit";
+import {
+  getPendingChangeDecoder,
+  getPendingChangeEncoder,
+  type PendingChange,
+  type PendingChangeArgs,
+} from "../types";
 
 export const VAULT_DISCRIMINATOR = new Uint8Array([
   211, 8, 232, 43, 2, 152, 117, 119,
@@ -71,6 +77,11 @@ export type Vault = {
   bump: number;
   /** Empty space so fields can be added later without breaking existing vaults. */
   reserved: ReadonlyUint8Array;
+  /**
+   * A less-safe change that is waiting, if any. One at a time.
+   * Last because its size varies (None is smaller than Some).
+   */
+  pendingChange: Option<PendingChange>;
 };
 
 export type VaultArgs = {
@@ -90,6 +101,11 @@ export type VaultArgs = {
   bump: number;
   /** Empty space so fields can be added later without breaking existing vaults. */
   reserved: ReadonlyUint8Array;
+  /**
+   * A less-safe change that is waiting, if any. One at a time.
+   * Last because its size varies (None is smaller than Some).
+   */
+  pendingChange: OptionOrNullable<PendingChangeArgs>;
 };
 
 /** Gets the encoder for {@link VaultArgs} account data. */
@@ -105,6 +121,7 @@ export function getVaultEncoder(): Encoder<VaultArgs> {
       ["nextWithdrawalId", getU64Encoder()],
       ["bump", getU8Encoder()],
       ["reserved", fixEncoderSize(getBytesEncoder(), 64)],
+      ["pendingChange", getOptionEncoder(getPendingChangeEncoder())],
     ]),
     (value) => ({ ...value, discriminator: VAULT_DISCRIMINATOR }),
   );
@@ -122,6 +139,7 @@ export function getVaultDecoder(): Decoder<Vault> {
     ["nextWithdrawalId", getU64Decoder()],
     ["bump", getU8Decoder()],
     ["reserved", fixDecoderSize(getBytesDecoder(), 64)],
+    ["pendingChange", getOptionDecoder(getPendingChangeDecoder())],
   ]);
 }
 
