@@ -2,6 +2,7 @@ import { createBrowserRouter, RouterProvider } from "react-router";
 
 import { AppShell } from "./components/layout/AppShell";
 import { GuardianHome } from "./pages/guardian/GuardianHome";
+import { History } from "./pages/history/History";
 import { Home } from "./pages/Home";
 import { NotFound } from "./pages/NotFound";
 import { Placeholder } from "./pages/Placeholder";
@@ -27,10 +28,7 @@ const router = createBrowserRouter([
         element: <Placeholder screen={9} title="Guardian invite" />,
       },
       { path: "/settings", element: <Settings /> },
-      {
-        path: "/history",
-        element: <Placeholder screen={12} title="History" />,
-      },
+      { path: "/history", element: <History /> },
       { path: "*", element: <NotFound /> },
     ],
   },

@@ -17,6 +17,7 @@ import {
   type WithdrawalState,
 } from "./accounts";
 import { vaultAddress, withdrawalAddress } from "./addresses";
+import { fetchVaultHistory } from "./history";
 
 const commitment = "confirmed" as const;
 
@@ -344,6 +345,28 @@ export function useWithdrawalsOfVaults(vaults: Address[]) {
   );
   return {
     byVault: data ?? new Map<string, WithdrawalState[]>(),
+    isLoading,
+    error,
+    refresh: mutate,
+  };
+}
+
+/**
+ * A vault's history from its Solana transactions, newest first. `limit`
+ * grows with "Show older"; transactions already read are cached.
+ */
+export function useVaultHistory(vault: Address | null, limit = 50) {
+  const { rpc } = useClient<AppClient>();
+  const { data, error, isLoading, mutate } = useRequestSWR(
+    vault ? ["history", vault, limit] : null,
+    vault
+      ? (signal: AbortSignal) => fetchVaultHistory(rpc, vault, limit, signal)
+      : null,
+    { keepPreviousData: true }
+  );
+  return {
+    items: data?.items ?? [],
+    hasMore: data?.hasMore ?? false,
     isLoading,
     error,
     refresh: mutate,
