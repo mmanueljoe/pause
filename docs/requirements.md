@@ -130,7 +130,7 @@ Each requirement has an ID so stories and tickets can point to it.
 | FR-6 | An owner can deposit SOL from their wallet into the vault. Deposits are instant. |
 | FR-7 | An owner can request a withdrawal to any address, including their own wallet. Every withdrawal waits. |
 | FR-8 | Before confirming, the app shows when the money will arrive ("Arrives today at 6:42 pm") and that the guardian will be told. |
-| FR-9 | The owner gets a notification when a withdrawal arrives: an email ("2 SOL arrived in your wallet") and, if the app is open, a toast. |
+| FR-9 | The owner gets a notification when a withdrawal arrives: an email ("2 SOL arrived in your wallet") and, if the app is open, a toast. Owner emails are optional: the owner adds an email in Settings ("Email me about my vault"); without one they get in-app notices only. |
 
 **Waiting payments**
 
@@ -366,7 +366,7 @@ Screens 1 to 8 are designed: **Figma is the source for their layout, states and 
 | Devices | Works on recent Chrome, Safari and Firefox, on laptop and phone screen sizes. |
 | Accessibility | Readable text contrast, keyboard use, countdowns that also show as text, not only as a ring. |
 | Plain language | No crypto jargon on screen without a short explanation. Amounts show in SOL with an approximate dollar value where possible. |
-| Privacy | Guardian names and emails, and the owner's time zone, are stored only in Supabase, never on Solana. |
+| Privacy | Guardian names and emails, the owner's email and the owner's time zone are stored only in Supabase, never on Solana. Requests that save them are proven with a free wallet-signed message. |
 | Honesty in copy | Never promise money can be recovered or that Pause makes theft impossible. |
 
 ## Design decisions
@@ -549,7 +549,7 @@ Not built for the hackathon: no payments or limits are in the program or backend
 | Product name | Keep "Pause" or choose another | Team, with designer |
 | Default values | Confirm the wait times in Core rules. There is no daily limit (decided: your normal wallet is for everyday money; a limit would let a thief take that amount instantly) | Team |
 | Business model | **Decided:** freemium subscription. See [Business model](#business-model) | Team |
-| Alert channel | Email only, or email plus Telegram | Developer, based on time |
+| Alert channel | **Decided:** email, sent with Resend (free tier). Telegram only if time allows | Developer, based on time |
 | Founder-market fit | Our honest reason for building this, for the pitch and stage-2 judging | Team |
 | Partner tracks | Opt into Supabase or ElevenLabs tracks if announced and actually used | Team, after kickoff announcement |
 | Brand direction | Decided in Design decisions; the team can still change it | Team |

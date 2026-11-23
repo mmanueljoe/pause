@@ -16,14 +16,14 @@ The repo is set up and the tooling works. All program actions in the requirement
 
 ## Stack
 
-| Part             | Technology                                                          |
-| ---------------- | ------------------------------------------------------------------- |
-| Solana program   | Rust, Anchor 1.1.2, tested with LiteSVM                             |
-| Program client   | TypeScript, generated from the program by Codama (`@solana/kit`)    |
-| Website          | React 19, Vite, TypeScript, Tailwind CSS v4, React Router           |
-| Solana in the UI | `@solana/kit` 8, `@solana/kit-plugin-wallet`, `@solana/react` + SWR |
-| Wallets          | Any Wallet Standard wallet, such as Phantom or Solflare             |
-| Backend (coming) | Supabase: guardian emails, alerts, automatic release after the wait |
+| Part             | Technology                                                                                                         |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Solana program   | Rust, Anchor 1.1.2, tested with LiteSVM                                                                            |
+| Program client   | TypeScript, generated from the program by Codama (`@solana/kit`)                                                   |
+| Website          | React 19, Vite, TypeScript, Tailwind CSS v4, React Router                                                          |
+| Solana in the UI | `@solana/kit` 8, `@solana/kit-plugin-wallet`, `@solana/react` + SWR                                                |
+| Wallets          | Any Wallet Standard wallet, such as Phantom or Solflare                                                            |
+| Backend          | Supabase (Postgres, Edge Functions, cron): guardian names and emails, alerts, automatic release; emails via Resend |
 
 ## Project layout
 
@@ -41,6 +41,7 @@ The repo is set up and the tooling works. All program actions in the requirement
 │   ├── lib/pause/              Reading and sending to the Pause program
 │   ├── lib/solana/client.ts    Solana connection and wallets
 │   └── generated/pause/        Client generated from the program (do not edit by hand)
+├── supabase/                   Backend: migrations (tables) and Edge Functions
 ├── docs/requirements.md        Product requirements (source of truth)
 ├── design/                     Design workspace notes (Figma)
 ├── .github/                    CI workflow and pull request template
@@ -158,6 +159,7 @@ The first deploy reserved 600,000 bytes (`--max-len`), about twice the program's
 - Website: Guardian home (screen 10, US-7, US-8): urgent payments and less-safe changes pinned with Stop, Approve now and Stop this change; live via program notifications.
 - Website: Settings (screen 11, US-10, US-11): change the wait (longer now, shorter waits), change, add or remove the guardian (always waits), cancel or apply the waiting change.
 - Website: History (screen 12, US-14), read from each vault's Solana transactions: only events recorded by the Pause program's own event authority count; filters, grouped by day, a Solana link on every line. Guardian since on Guardian home.
+- Backend foundation: Supabase tables (locked with row-level security; only Edge Functions can read or write) and shared wallet-signed request checks.
 - _Each feature is added here as it lands._
 
 ## License
