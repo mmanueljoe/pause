@@ -9,6 +9,8 @@ type CountdownProps = {
   endsAt: Date;
   /** Turns the bar green with "Stopped". */
   stopped?: boolean;
+  /** Words under the bar when stopped. */
+  stoppedText?: string;
 };
 
 /**
@@ -19,6 +21,7 @@ export function Countdown({
   startedAt,
   endsAt,
   stopped = false,
+  stoppedText = "Stopped. Still in your vault.",
 }: CountdownProps) {
   const now = useNow();
   const total = Math.max(1, endsAt.getTime() - startedAt.getTime());
@@ -27,7 +30,7 @@ export function Countdown({
   const remaining = stopped ? 1 : leftMs / total;
   // Words change at most once a minute, so screen readers aren't flooded.
   const words = stopped
-    ? "Stopped. Still in your vault."
+    ? stoppedText
     : leftMs <= 0
       ? "The wait is over. Sending now."
       : `${formatDuration(Math.floor(leftSecs / 60) * 60)} left`;

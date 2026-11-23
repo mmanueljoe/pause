@@ -16,7 +16,7 @@ import {
   withdrawalsOfVaultFilters,
   type WithdrawalState,
 } from "./accounts";
-import { vaultAddress } from "./addresses";
+import { vaultAddress, withdrawalAddress } from "./addresses";
 
 const commitment = "confirmed" as const;
 
@@ -235,4 +235,46 @@ export function useSolPrice(): number | null {
     }
   );
   return data ?? null;
+}
+
+/** One withdrawal, kept live (status changes the moment it's stopped or sent). */
+export function useWithdrawal(address: Address | null) {
+  const { rpc, rpcSubscriptions } = useClient<AppClient>();
+  const spec = useMemo(
+    () =>
+      address
+        ? {
+            initialValueSource: rpc.getAccountInfo(address, {
+              commitment,
+              encoding: "base64",
+            }),
+            initialValueMapper: (account: RawAccount | null) =>
+              account ? decodeWithdrawalAccount(address, account) : null,
+            streamSource: rpcSubscriptions.accountNotifications(address, {
+              commitment,
+              encoding: "base64",
+            }),
+            streamValueMapper: (account: RawAccount) =>
+              decodeWithdrawalAccount(address, account),
+          }
+        : null,
+    [rpc, rpcSubscriptions, address]
+  );
+  const { data, error } = useTrackedDataSWR(
+    address ? ["withdrawal", address] : null,
+    spec
+  );
+  return {
+    withdrawal: data?.value ?? null,
+    isLoading: address != null && data == null && error == null,
+    error,
+  };
+}
+
+/** The address of withdrawal number `id` in `vault`. */
+export function useWithdrawalAddress(vault: Address | null, id: bigint | null) {
+  return useAsyncValue(
+    vault !== null && id !== null ? () => withdrawalAddress(vault, id) : null,
+    [vault, id === null ? null : String(id)]
+  );
 }

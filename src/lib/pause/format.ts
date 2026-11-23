@@ -109,3 +109,18 @@ export function formatUsd(
   const usd = (Number(lamports) / 1_000_000_000) * solPrice;
   return `≈ ${usd.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 })}`;
 }
+
+/** "Sat 9:14 pm": fixed day and time, for details and history. */
+export function formatDayTime(date: Date): string {
+  return `${date.toLocaleDateString("en-US", { weekday: "short" })} ${formatTime(date)}`;
+}
+
+/** Exact lamports as an amount-field string ("40.499999999"), never rounded up. */
+export function lamportsToInput(amount: bigint): string {
+  const whole = amount / LAMPORTS_PER_SOL;
+  const fraction = (amount % LAMPORTS_PER_SOL)
+    .toString()
+    .padStart(9, "0")
+    .replace(/0+$/, "");
+  return fraction ? `${whole}.${fraction}` : `${whole}`;
+}

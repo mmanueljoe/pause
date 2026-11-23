@@ -5,7 +5,12 @@ import { Info } from "lucide-react";
 
 import { Button, Input, useToast } from "../../components/ui";
 import { Dialog } from "../../components/ui/Dialog";
-import { formatSol, formatWait, parseSol } from "../../lib/pause/format";
+import {
+  formatSol,
+  formatWait,
+  lamportsToInput,
+  parseSol,
+} from "../../lib/pause/format";
 import { useWalletBalance, useWalletAddress } from "../../lib/pause/hooks";
 import { depositInstruction } from "../../lib/pause/instructions";
 import { useSendPause } from "../../lib/pause/send";
@@ -94,7 +99,7 @@ export function DepositDialog({
           </span>
           <Button
             variant="link"
-            onClick={() => setInput(formatSol(max).replace(/[^\d.]/g, ""))}
+            onClick={() => setInput(lamportsToInput(max))}
             disabled={isSending || max === 0n}
           >
             Max

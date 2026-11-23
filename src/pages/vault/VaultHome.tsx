@@ -3,10 +3,15 @@ import { Link, Navigate } from "react-router";
 import { CircleAlert } from "lucide-react";
 
 import { WaitingRow } from "../../components/payments/WaitingRow";
-import { paidAddresses } from "../../lib/pause/withdrawals";
+import { paidAddresses, urgentReasons } from "../../lib/pause/withdrawals";
 import { Address, Button, Card } from "../../components/ui";
 import type { VaultState, WithdrawalState } from "../../lib/pause/accounts";
-import { formatSol, formatUsd, formatWait } from "../../lib/pause/format";
+import {
+  formatSol,
+  formatUsd,
+  formatWait,
+  shortAddress,
+} from "../../lib/pause/format";
 import {
   useSolPrice,
   useVault,
@@ -57,9 +62,19 @@ export function VaultHomeView({
     .filter((w) => w.data.status.__kind === "Waiting")
     .sort((a, b) => Number(a.data.releaseAt - b.data.releaseAt));
   const paid = paidAddresses(withdrawals);
+  const urgent = waiting.find(
+    (w) => urgentReasons(w, vault, withdrawals).length > 0
+  );
 
   return (
     <div className="grid items-start gap-6 py-8 lg:grid-cols-[1fr_360px]">
+      {urgent && (
+        <TheftBanner
+          withdrawal={urgent}
+          isNew={!paid.has(urgent.data.recipient)}
+          className="lg:col-span-2"
+        />
+      )}
       <div className="flex flex-col gap-6">
         <BalanceCard vault={vault} onDeposit={() => setDepositing(true)} />
         <Card className="flex flex-col gap-3">
@@ -185,5 +200,51 @@ function GuardianCard({ vault }: { vault: VaultState }) {
         They can stop any withdrawal while it waits, and approve one early.
       </p>
     </Card>
+  );
+}
+
+/**
+ * Shown when a waiting withdrawal looks like theft (FR-17). It reads "Your
+ * wallet asked…" because after a theft it may not have been the owner.
+ */
+function TheftBanner({
+  withdrawal,
+  isNew,
+  className,
+}: {
+  withdrawal: WithdrawalState;
+  isNew: boolean;
+  className?: string;
+}) {
+  const { data } = withdrawal;
+  return (
+    <div
+      role="alert"
+      className={`flex flex-col gap-4 rounded-card border border-waiting/40 bg-waiting-soft p-6 sm:flex-row sm:items-center ${className ?? ""}`}
+    >
+      <div className="flex flex-1 flex-col gap-1">
+        <p className="text-h3 font-semibold md:text-h3-lg">
+          Your wallet asked to send {formatSol(data.amountLamports)} to{" "}
+          {isNew ? "a new address" : shortAddress(data.recipient)}. Was this
+          you?
+        </p>
+        <p className="text-text-2">
+          If not, stop it now. Then ask your guardian to help you{" "}
+          <Link
+            to="/vault/withdraw?rescue=1"
+            className="focus-ring rounded text-text underline underline-offset-4"
+          >
+            rescue your savings
+          </Link>
+          .
+        </p>
+      </div>
+      <Link
+        to={`/vaults/${data.vault}/payments/${data.id}`}
+        className="focus-ring inline-flex h-12 shrink-0 items-center justify-center rounded-full bg-waiting px-6 text-bg hover:brightness-95"
+      >
+        Review it
+      </Link>
+    </div>
   );
 }
