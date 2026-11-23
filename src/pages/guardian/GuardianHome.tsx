@@ -27,6 +27,7 @@ import {
 import {
   useGuardedVaults,
   usePauseProgramChanges,
+  useVaultHistory,
   useWalletAddress,
   useWithdrawalsOfVaults,
 } from "../../lib/pause/hooks";
@@ -35,6 +36,7 @@ import {
   type UrgentReason,
   urgentReasons,
 } from "../../lib/pause/withdrawals";
+import { guardianSince } from "../../lib/pause/historyText";
 import { useNow } from "../../lib/useNow";
 
 /** Screen 10: vaults this wallet protects (US-7, US-8). Live. */
@@ -327,6 +329,9 @@ function VaultCard({
   withdrawals: WithdrawalState[];
   hide: Set<string>;
 }) {
+  const me = useWalletAddress();
+  const { items: history } = useVaultHistory(vault.address);
+  const since = me ? guardianSince(history, me) : null;
   const paid = paidAddresses(withdrawals);
   const routine = withdrawals
     .filter((w) => w.data.status.__kind === "Waiting" && !hide.has(w.address))
@@ -347,6 +352,18 @@ function VaultCard({
           <dt className="text-small text-text-2">Withdrawals wait</dt>
           <dd>{formatWait(vault.data.withdrawalWaitSecs)}</dd>
         </div>
+        {since && (
+          <div>
+            <dt className="text-small text-text-2">Guardian since</dt>
+            <dd>
+              {since.toLocaleDateString("en-GB", {
+                day: "numeric",
+                month: "short",
+                year: "numeric",
+              })}
+            </dd>
+          </div>
+        )}
       </dl>
       <hr className="border-line" />
       {routine.length === 0 ? (

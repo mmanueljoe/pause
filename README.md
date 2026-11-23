@@ -157,6 +157,7 @@ The first deploy reserved 600,000 bytes (`--max-len`), about twice the program's
 - Website: Withdraw (with Rescue), waiting payment detail for owner and guardian (Stop, Approve now with confirmation, Release), urgent reasons and theft banner (screens 7 and 8, US-5, US-8, US-8a, US-8b, US-9).
 - Website: Guardian home (screen 10, US-7, US-8): urgent payments and less-safe changes pinned with Stop, Approve now and Stop this change; live via program notifications.
 - Website: Settings (screen 11, US-10, US-11): change the wait (longer now, shorter waits), change, add or remove the guardian (always waits), cancel or apply the waiting change.
+- Website: History (screen 12, US-14), read from each vault's Solana transactions: only events recorded by the Pause program's own event authority count; filters, grouped by day, a Solana link on every line. Guardian since on Guardian home.
 - _Each feature is added here as it lands._
 
 ## License
