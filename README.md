@@ -79,6 +79,13 @@ solana-keygen new          # creates ~/.config/solana/id.json; keep the seed phr
 solana airdrop 2           # free devnet SOL; if rate-limited, use https://faucet.solana.com
 ```
 
+### Supabase (backend)
+
+Put the project's URL and publishable key in `.env.local` (Supabase dashboard: Project Settings → API, and API Keys). Both are public values: they only let the website call our Edge Functions, which check a wallet signature before saving anything. They still stay out of git, and CI's secret scan checks that.
+
+- Tables: `supabase/migrations/`. Functions: `supabase/functions/` (each with a pinned `deno.json`; shared code in `_shared/`).
+- The functions use no Solana SDK: Deno's built-in Ed25519 checks wallet signatures (the SDK is too large for Supabase's bundler).
+
 ### RPC URL
 
 The website talks to Solana through an RPC URL. With `VITE_SOLANA_RPC_URL` empty it uses the free public devnet URL, `https://api.devnet.solana.com`. That URL is rate-limited, so for the live demo create a free devnet URL at Helius, QuickNode or Alchemy and put it in `.env.local`.
@@ -160,6 +167,7 @@ The first deploy reserved 600,000 bytes (`--max-len`), about twice the program's
 - Website: Settings (screen 11, US-10, US-11): change the wait (longer now, shorter waits), change, add or remove the guardian (always waits), cancel or apply the waiting change.
 - Website: History (screen 12, US-14), read from each vault's Solana transactions: only events recorded by the Pause program's own event authority count; filters, grouped by day, a Solana link on every line. Guardian since on Guardian home.
 - Backend foundation: Supabase tables (locked with row-level security; only Edge Functions can read or write) and shared wallet-signed request checks.
+- Backend: owner and guardian first names, one-time invite links (hashed, 7 days) and the Guardian invite screen (screen 9, FR-4, FR-13, US-3); Edge Functions `save-vault-profile`, `get-invite`, `accept-invite`, `vault-profile`.
 - _Each feature is added here as it lands._
 
 ## License

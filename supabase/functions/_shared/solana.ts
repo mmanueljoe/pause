@@ -1,4 +1,4 @@
-import { getAddressDecoder, getBase64Encoder } from "@solana/kit";
+import { decodeBase64, encodeBase58 } from "./base58.ts";
 
 /** Pause program on devnet (anchor/programs/pause/src/lib.rs, declare_id!). */
 export const PAUSE_PROGRAM_ADDRESS =
@@ -39,11 +39,10 @@ export async function readVault(vault: string): Promise<VaultInfo | null> {
   ]);
   const account = result.value;
   if (!account || account.owner !== PAUSE_PROGRAM_ADDRESS) return null;
-  const bytes = getBase64Encoder().encode(account.data[0]) as Uint8Array;
+  const bytes = decodeBase64(account.data[0]);
   if (bytes.length < 73 || !VAULT_DISCRIMINATOR.every((b, i) => bytes[i] === b))
     return null;
-  const decoder = getAddressDecoder();
-  const owner = decoder.decode(bytes.slice(8, 40));
-  const guardian = bytes[40] === 1 ? decoder.decode(bytes.slice(41, 73)) : null;
+  const owner = encodeBase58(bytes.slice(8, 40));
+  const guardian = bytes[40] === 1 ? encodeBase58(bytes.slice(41, 73)) : null;
   return { owner, guardian };
 }
