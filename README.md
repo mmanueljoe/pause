@@ -152,6 +152,7 @@ The first deploy reserved 600,000 bytes (`--max-len`), about twice the program's
 - Program deployed to devnet (demo build).
 - Website foundation: design tokens, shared components, one page per screen, live vault data, role detection (FR-2). Moved from `@solana/react-hooks` to the maintained Kit 8 wallet stack.
 - Website: Landing page and Connect wallet dialog (screens 1 and 2, US-1).
+- Website: Create vault in three steps (screens 3 and 4, US-2, US-3). In the devnet demo, waits are in minutes.
 - _Each feature is added here as it lands._
 
 ## License

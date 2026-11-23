@@ -27,7 +27,7 @@ export function Input({
   const note = error ?? help;
   return (
     <div className={cx("flex flex-col gap-2", className)}>
-      <label htmlFor={inputId} className="text-small text-text-2">
+      <label htmlFor={inputId} className="text-small text-text">
         {label}
       </label>
       <input

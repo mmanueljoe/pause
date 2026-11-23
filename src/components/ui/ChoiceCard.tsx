@@ -9,7 +9,7 @@ type ChoiceCardProps = {
   onChange: (value: string) => void;
   title: string;
   description?: ReactNode;
-  /** Small tag beside the title, e.g. "Recommended". */
+  /** Neutral tag at the top right, e.g. "Recommended". Never amber. */
   tag?: string;
 };
 
@@ -26,9 +26,11 @@ export function ChoiceCard({
   return (
     <label
       className={cx(
-        "flex cursor-pointer flex-col gap-3 rounded-card border bg-surface-1 p-6 transition-colors",
+        "flex cursor-pointer flex-col gap-3 rounded-card p-6 transition-colors",
         "has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-text has-[:focus-visible]:ring-offset-2 has-[:focus-visible]:ring-offset-bg",
-        checked ? "border-text" : "border-line hover:border-text-3"
+        checked
+          ? "border-[1.5px] border-text bg-surface-2"
+          : "border border-line bg-surface-1 hover:border-text-3"
       )}
     >
       <input
@@ -37,25 +39,30 @@ export function ChoiceCard({
         value={value}
         checked={checked}
         onChange={() => onChange(value)}
-        className="peer sr-only"
+        className="sr-only"
       />
-      <span
-        aria-hidden
-        className={cx(
-          "flex size-5 items-center justify-center rounded-full border",
-          checked ? "border-text" : "border-text-3"
-        )}
-      >
-        {checked && <span className="size-2.5 rounded-full bg-text" />}
-      </span>
-      <span className="flex flex-wrap items-center gap-2">
-        <span className="text-h3 font-semibold md:text-h3-lg">{title}</span>
+      <span className="flex items-center justify-between">
+        <span
+          aria-hidden
+          className={cx(
+            "flex size-5 items-center justify-center rounded-full border-[1.5px]",
+            checked ? "border-text" : "border-line"
+          )}
+        >
+          {checked && <span className="size-2.5 rounded-full bg-text" />}
+        </span>
         {tag && (
-          <span className="rounded-full bg-surface-2 px-2 py-0.5 text-small text-text-2">
+          <span
+            className={cx(
+              "rounded-full px-2 py-0.5 text-small text-text-2",
+              checked ? "bg-surface-1" : "bg-surface-2"
+            )}
+          >
             {tag}
           </span>
         )}
       </span>
+      <span className="text-h3 font-semibold md:text-h3-lg">{title}</span>
       {description && (
         <span className="text-small text-text-2">{description}</span>
       )}
