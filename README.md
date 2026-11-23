@@ -81,7 +81,7 @@ solana airdrop 2           # free devnet SOL; if rate-limited, use https://fauce
 
 ### Supabase (backend)
 
-`.env.example` has the project's URL and publishable key. Both are public: they only let the website call our Edge Functions, which check a wallet signature before saving anything. Copy them into `.env.local`.
+Put the project's URL and publishable key in `.env.local` (Supabase dashboard: Project Settings → API, and API Keys). Both are public values: they only let the website call our Edge Functions, which check a wallet signature before saving anything. They still stay out of git, and CI's secret scan checks that.
 
 - Tables: `supabase/migrations/`. Functions: `supabase/functions/` (each with a pinned `deno.json`; shared code in `_shared/`).
 - The functions use no Solana SDK: Deno's built-in Ed25519 checks wallet signatures (the SDK is too large for Supabase's bundler).

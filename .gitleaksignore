@@ -1,0 +1,5 @@
+# Reviewed findings that are not secrets.
+# Supabase *publishable* key (public by design, sent to every browser; our
+# Edge Functions check wallet signatures). It was committed to .env.example
+# in bbbb4e7 and removed in the next commit; the old commit is still scanned.
+bbbb4e7cd1d14d83448f62ba720a2a56cb0c53f0:.env.example:generic-api-key:11
