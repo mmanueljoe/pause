@@ -4,13 +4,14 @@ import {
   useDisconnect,
 } from "@solana/kit-plugin-wallet/react";
 import { useClient } from "@solana/react";
+import { Wallet } from "lucide-react";
 
 import { shortAddress } from "../../lib/pause/format";
 import type { AppClient } from "../../lib/solana/client";
 import { Button } from "../ui";
 import { useConnectWallet } from "../wallet/connect-context";
 
-/** Header wallet control: Connect wallet, or the short address with a menu. */
+/** Header wallet control: Connect wallet, or the wallet chip with a menu. */
 export function AccountMenu() {
   const client = useClient<AppClient>();
   const connected = useConnectedWallet(client);
@@ -43,15 +44,17 @@ export function AccountMenu() {
   const address = connected.account.address;
   return (
     <div ref={ref} className="relative">
-      <Button
-        variant="secondary"
+      <button
+        type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         aria-haspopup="menu"
+        aria-label={`Wallet ${address}`}
+        className="focus-ring flex min-h-11 items-center gap-2 rounded-full border border-line bg-surface-2 px-3 py-2 hover:border-text-3"
       >
-        <img src={connected.wallet.icon} alt="" className="size-5 rounded" />
+        <Wallet size={16} strokeWidth={1.5} aria-hidden />
         <span className="font-mono text-small">{shortAddress(address)}</span>
-      </Button>
+      </button>
       {open && (
         <div
           role="menu"

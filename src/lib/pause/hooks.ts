@@ -3,6 +3,7 @@ import { type Address, address } from "@solana/kit";
 import { useConnectedWallet } from "@solana/kit-plugin-wallet/react";
 import { useClient } from "@solana/react";
 import { useRequestSWR, useTrackedDataSWR } from "@solana/react/swr";
+import useSWR from "swr";
 
 import { PAUSE_PROGRAM_ADDRESS } from "../../generated/pause";
 import type { AppClient } from "../solana/client";
@@ -185,4 +186,53 @@ export function useRole(wallet: Address | null) {
             : "neither";
   }
   return { role, ownVault: vault, guardedVaults: guarded };
+}
+
+/** A wallet's SOL balance in lamports, kept live. */
+export function useWalletBalance(address: Address | null) {
+  const { rpc, rpcSubscriptions } = useClient<AppClient>();
+  const spec = useMemo(
+    () =>
+      address
+        ? {
+            initialValueSource: rpc.getBalance(address, { commitment }),
+            initialValueMapper: (lamports: bigint) => lamports,
+            streamSource: rpcSubscriptions.accountNotifications(address, {
+              commitment,
+            }),
+            streamValueMapper: ({ lamports }: { lamports: bigint }) => lamports,
+          }
+        : null,
+    [rpc, rpcSubscriptions, address]
+  );
+  const { data } = useTrackedDataSWR(
+    address ? ["balance", address] : null,
+    spec
+  );
+  return data?.value ?? null;
+}
+
+const SOL_PRICE_URL =
+  "https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd";
+
+/**
+ * Today's SOL price in US dollars from CoinGecko's free public API, or null
+ * if it isn't available (then the dollar line is hidden).
+ */
+export function useSolPrice(): number | null {
+  const { data } = useSWR<number | null>(
+    "sol-price",
+    async () => {
+      const response = await fetch(SOL_PRICE_URL);
+      if (!response.ok) return null;
+      const body = (await response.json()) as { solana?: { usd?: unknown } };
+      return typeof body.solana?.usd === "number" ? body.solana.usd : null;
+    },
+    {
+      refreshInterval: 5 * 60_000,
+      shouldRetryOnError: false,
+      revalidateOnFocus: false,
+    }
+  );
+  return data ?? null;
 }

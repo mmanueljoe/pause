@@ -79,3 +79,33 @@ export function formatArrival(date: Date, now = new Date()): string {
 export function fromUnix(seconds: bigint): Date {
   return new Date(Number(seconds) * 1000);
 }
+
+/** A wait length the way setup shows it: "1 minute", "24 hours", "3 days". */
+export function formatWait(seconds: bigint | number): string {
+  const s = Number(seconds);
+  const unit = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+  if (s % 86_400 === 0 && s >= 2 * 86_400) return unit(s / 86_400, "day");
+  if (s % 3600 === 0) return unit(s / 3600, "hour");
+  if (s % 60 === 0) return unit(s / 60, "minute");
+  return formatDuration(s);
+}
+
+/** Short time left for lists: "5h 42m left", "42m left", "38s left". */
+export function formatTimeLeft(totalSeconds: number): string {
+  const s = Math.max(0, Math.floor(totalSeconds));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  if (h > 0) return `${h}h ${m}m left`;
+  if (m > 0) return `${m}m left`;
+  return `${s}s left`;
+}
+
+/** "≈ $5,950" (whole dollars), or null when there's no price. */
+export function formatUsd(
+  lamports: bigint,
+  solPrice: number | null
+): string | null {
+  if (solPrice === null) return null;
+  const usd = (Number(lamports) / 1_000_000_000) * solPrice;
+  return `≈ ${usd.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 })}`;
+}
