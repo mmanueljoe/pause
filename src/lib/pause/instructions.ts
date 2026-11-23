@@ -2,10 +2,14 @@ import { type Address, type TransactionSigner } from "@solana/kit";
 
 import {
   getCreateVaultInstructionAsync,
+  getApproveWithdrawalInstruction,
   getDepositInstructionAsync,
+  getReleaseWithdrawalInstruction,
+  getRequestWithdrawalInstructionAsync,
+  getStopWithdrawalInstruction,
   PAUSE_PROGRAM_ADDRESS,
 } from "../../generated/pause";
-import { eventAuthorityAddress } from "./addresses";
+import { eventAuthorityAddress, withdrawalAddress } from "./addresses";
 
 /**
  * Builders for Pause instructions. They fill in the accounts every Pause
@@ -43,6 +47,62 @@ export async function depositInstruction(input: {
   return getDepositInstructionAsync({
     owner: input.owner,
     amountLamports: input.amountLamports,
+    ...(await eventAccounts()),
+  });
+}
+
+/**
+ * US-5: ask to send SOL from the vault. Nothing moves yet; it waits.
+ * The new record's address uses the vault's current counter, so pass the
+ * freshly read `nextWithdrawalId`.
+ */
+export async function requestWithdrawalInstruction(input: {
+  owner: TransactionSigner;
+  vault: Address;
+  nextWithdrawalId: bigint;
+  recipient: Address;
+  amountLamports: bigint;
+}) {
+  return getRequestWithdrawalInstructionAsync({
+    owner: input.owner,
+    vault: input.vault,
+    withdrawal: await withdrawalAddress(input.vault, input.nextWithdrawalId),
+    recipient: input.recipient,
+    amountLamports: input.amountLamports,
+    ...(await eventAccounts()),
+  });
+}
+
+/** US-8: the owner or guardian stops a waiting withdrawal. No SOL moves. */
+export async function stopWithdrawalInstruction(input: {
+  authority: TransactionSigner;
+  vault: Address;
+  withdrawal: Address;
+}) {
+  return getStopWithdrawalInstruction({ ...input, ...(await eventAccounts()) });
+}
+
+/** US-8a: the guardian approves a waiting withdrawal early; it's sent now. */
+export async function approveWithdrawalInstruction(input: {
+  guardian: TransactionSigner;
+  vault: Address;
+  withdrawal: Address;
+  recipient: Address;
+}) {
+  return getApproveWithdrawalInstruction({
+    ...input,
+    ...(await eventAccounts()),
+  });
+}
+
+/** US-9: anyone sends a withdrawal to its named recipient after the wait. */
+export async function releaseWithdrawalInstruction(input: {
+  vault: Address;
+  withdrawal: Address;
+  recipient: Address;
+}) {
+  return getReleaseWithdrawalInstruction({
+    ...input,
     ...(await eventAccounts()),
   });
 }
