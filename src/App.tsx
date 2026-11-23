@@ -1,6 +1,7 @@
 import { createBrowserRouter, RouterProvider } from "react-router";
 
 import { AppShell } from "./components/layout/AppShell";
+import { GuardianHome } from "./pages/guardian/GuardianHome";
 import { Home } from "./pages/Home";
 import { NotFound } from "./pages/NotFound";
 import { Placeholder } from "./pages/Placeholder";
@@ -19,10 +20,7 @@ const router = createBrowserRouter([
       { path: "/vault", element: <VaultHome /> },
       { path: "/vault/withdraw", element: <Withdraw /> },
       { path: "/vaults/:vault/payments/:id", element: <PaymentDetail /> },
-      {
-        path: "/guardian",
-        element: <Placeholder screen={10} title="Vaults you protect" />,
-      },
+      { path: "/guardian", element: <GuardianHome /> },
       {
         path: "/invite/:code",
         element: <Placeholder screen={9} title="Guardian invite" />,

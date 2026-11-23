@@ -1,8 +1,6 @@
 import { type ReactNode, useState } from "react";
 import { Link, useParams } from "react-router";
 import { type Address, isAddress } from "@solana/kit";
-import { useConnectedWallet } from "@solana/kit-plugin-wallet/react";
-import { useClient } from "@solana/react";
 import { ChevronLeft, ExternalLink } from "lucide-react";
 
 import {
@@ -12,9 +10,9 @@ import {
   Countdown,
   NewAddressTag,
   StatusLabel,
-  useToast,
 } from "../../components/ui";
-import { Dialog } from "../../components/ui/Dialog";
+import { ApproveDialog } from "../../components/payments/ApproveDialog";
+import { useWithdrawalActions } from "../../components/payments/useWithdrawalActions";
 import type { VaultState, WithdrawalState } from "../../lib/pause/accounts";
 import { explorerUrl } from "../../lib/pause/addresses";
 import {
@@ -35,17 +33,10 @@ import {
   useWithdrawals,
 } from "../../lib/pause/hooks";
 import {
-  approveWithdrawalInstruction,
-  releaseWithdrawalInstruction,
-  stopWithdrawalInstruction,
-} from "../../lib/pause/instructions";
-import { useSendPause } from "../../lib/pause/send";
-import {
   paidAddresses,
   type UrgentReason,
   urgentReasons,
 } from "../../lib/pause/withdrawals";
-import type { AppClient } from "../../lib/solana/client";
 import { useNow } from "../../lib/useNow";
 
 type Viewer = "owner" | "guardian" | "other";
@@ -392,46 +383,20 @@ function Actions({
   waitOver: boolean;
   onApprove: () => void;
 }) {
-  const client = useClient<AppClient>();
-  const connected = useConnectedWallet(client);
-  const toast = useToast();
-  const stop = useSendPause();
-  const release = useSendPause();
-  const [error, setError] = useState<string | null>(null);
-  const busy = stop.isSending || release.isSending;
-
-  async function onStop() {
-    if (!connected?.signer) return;
-    setError(null);
-    const result = await stop.send([
-      await stopWithdrawalInstruction({
-        authority: connected.signer,
-        vault: vault.address,
-        withdrawal: withdrawal.address,
-      }),
-    ]);
-    if ("error" in result) setError(result.error.message);
-    else toast("stopped", "Stopped. Still in the vault.");
-  }
-
-  async function onRelease() {
-    setError(null);
-    const result = await release.send([
-      await releaseWithdrawalInstruction({
-        vault: vault.address,
-        withdrawal: withdrawal.address,
-        recipient: withdrawal.data.recipient,
-      }),
-    ]);
-    if ("error" in result) setError(result.error.message);
-    else
-      toast("success", `Sent to ${shortAddress(withdrawal.data.recipient)}.`);
-  }
-
+  const actions = useWithdrawalActions(vault, withdrawal);
+  const [pending, setPending] = useState<"stop" | "release" | null>(null);
+  const busy = actions.isSending;
   const canStop = viewer === "owner" || viewer === "guardian";
+
+  async function act(which: "stop" | "release") {
+    setPending(which);
+    await (which === "stop" ? actions.stop() : actions.release());
+    setPending(null);
+  }
+
   return (
     <div className="flex flex-col gap-3">
-      {waitOver && connected && (
+      {waitOver && actions.connected && (
         <>
           <p className="text-small text-text-2">
             The wait is over. Send it now. It can only go to{" "}
@@ -443,8 +408,8 @@ function Actions({
           <Button
             size="large"
             fullWidth
-            onClick={onRelease}
-            loading={release.isSending}
+            onClick={() => act("release")}
+            loading={busy && pending === "release"}
             disabled={busy}
           >
             Send it now
@@ -456,8 +421,8 @@ function Actions({
           variant="stop"
           size="large"
           fullWidth
-          onClick={onStop}
-          loading={stop.isSending}
+          onClick={() => act("stop")}
+          loading={busy && pending === "stop"}
           disabled={busy}
         >
           Stop this payment
@@ -479,95 +444,11 @@ function Actions({
           </p>
         </>
       )}
-      {error && (
+      {actions.error && (
         <p className="text-small text-error" role="alert">
-          {error}
+          {actions.error}
         </p>
       )}
     </div>
-  );
-}
-
-/** Approve now can't be undone, so it asks first (FR-11a). Stop never asks. */
-export function ApproveDialog({
-  vault,
-  withdrawal,
-  onClose,
-}: {
-  vault: VaultState;
-  withdrawal: WithdrawalState;
-  onClose: () => void;
-}) {
-  const client = useClient<AppClient>();
-  const connected = useConnectedWallet(client);
-  const toast = useToast();
-  const { send, isSending } = useSendPause();
-  const [error, setError] = useState<string | null>(null);
-  const amount = formatSol(withdrawal.data.amountLamports);
-
-  async function approve() {
-    if (!connected?.signer) return;
-    setError(null);
-    const result = await send([
-      await approveWithdrawalInstruction({
-        guardian: connected.signer,
-        vault: vault.address,
-        withdrawal: withdrawal.address,
-        recipient: withdrawal.data.recipient,
-      }),
-    ]);
-    if ("error" in result) {
-      setError(result.error.message);
-      return;
-    }
-    toast(
-      "success",
-      `Sent ${amount} to ${shortAddress(withdrawal.data.recipient)}.`
-    );
-    onClose();
-  }
-
-  return (
-    <Dialog
-      title={`Send ${amount} now?`}
-      onClose={onClose}
-      closable={!isSending}
-    >
-      <p className="-mt-2 text-text-2">
-        It leaves the vault at once and goes to{" "}
-        <span className="font-mono text-small text-text">
-          {shortAddress(withdrawal.data.recipient)}
-        </span>
-        . This can't be undone.
-      </p>
-      <p>
-        Only approve if the owner told you themselves, by call or in person.
-      </p>
-      {error && (
-        <p className="text-small text-error" role="alert">
-          {error}
-        </p>
-      )}
-      <div className="flex flex-col gap-3">
-        <Button
-          variant="approve"
-          size="large"
-          fullWidth
-          onClick={approve}
-          loading={isSending}
-        >
-          Approve and send now
-        </Button>
-        <Button
-          variant="secondary"
-          size="large"
-          fullWidth
-          onClick={onClose}
-          disabled={isSending}
-        >
-          Cancel
-        </Button>
-      </div>
-    </Dialog>
   );
 }
