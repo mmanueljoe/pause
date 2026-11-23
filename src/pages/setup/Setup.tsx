@@ -16,7 +16,6 @@ import {
 import { cx } from "../../components/ui/cx";
 import { useConnectWallet } from "../../components/wallet/connect-context";
 import {
-  MAX_WITHDRAWAL_WAIT_SECS,
   SETUP_GUARDIAN_WAIT_SECS,
   WAIT_UNIT_NAME,
   WAIT_UNIT_SECS,
@@ -31,40 +30,15 @@ import { createVaultInstruction } from "../../lib/pause/instructions";
 import { useSendPause } from "../../lib/pause/send";
 import type { AppClient } from "../../lib/solana/client";
 import { useNow } from "../../lib/useNow";
+import {
+  MAX_UNITS,
+  plural,
+  unitsOf,
+  WAIT_CHOICES as CHOICES,
+  type WaitChoice,
+} from "../../lib/pause/waitChoices";
 
 const STEPS = ["Wait time", "Guardian", "Review"];
-const MAX_UNITS = Math.floor(MAX_WITHDRAWAL_WAIT_SECS / WAIT_UNIT_SECS);
-const plural = (n: number) => `${n} ${WAIT_UNIT_NAME}${n === 1 ? "" : "s"}`;
-
-/** Wait choices (docs/requirements.md, Values). Hours become minutes in the demo. */
-const CHOICES = [
-  {
-    units: 1,
-    description:
-      WAIT_UNIT_NAME === "hour"
-        ? "Fastest. Your guardian has one hour to notice."
-        : "Fastest. Your guardian has one minute to notice.",
-  },
-  {
-    units: 6,
-    description:
-      WAIT_UNIT_NAME === "hour"
-        ? "A withdrawal at 11 pm would leave at 5 am, while your guardian sleeps."
-        : "Enough time to watch your guardian stop a payment.",
-  },
-  {
-    units: 24,
-    tag: "Recommended",
-    description:
-      WAIT_UNIT_NAME === "hour"
-        ? "Your guardian has time to see it, even overnight."
-        : "Your guardian has time to see it and decide.",
-  },
-] as const;
-
-type WaitChoice =
-  { kind: "preset"; units: number } | { kind: "custom"; input: string };
-
 /** Screens 3 and 4: create a vault in three steps (US-2, US-3). */
 export function Setup() {
   const wallet = useWalletAddress();
@@ -129,13 +103,6 @@ export function Setup() {
       )}
     </Column>
   );
-}
-
-/** Number of wait units chosen, or null if the custom value isn't valid yet. */
-function unitsOf(wait: WaitChoice): number | null {
-  if (wait.kind === "preset") return wait.units;
-  const n = Number(wait.input);
-  return Number.isInteger(n) && n >= 1 && n <= MAX_UNITS ? n : null;
 }
 
 function Column({ children }: { children: React.ReactNode }) {

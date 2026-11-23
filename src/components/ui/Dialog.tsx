@@ -45,7 +45,7 @@ export function Dialog({
         "md:inset-0 md:m-auto md:h-fit md:max-w-[440px]"
       )}
     >
-      <div className="flex flex-col gap-6 rounded-t-card border border-line bg-surface-1 p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] md:rounded-card md:pb-6">
+      <div className="flex max-h-[90dvh] flex-col gap-6 overflow-y-auto rounded-t-card border border-line bg-surface-1 p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] md:rounded-card md:pb-6">
         <div className="flex items-start gap-4">
           <h2
             id={titleId}

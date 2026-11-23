@@ -5,6 +5,7 @@ import { useState } from "react";
 import type { VaultState, WithdrawalState } from "../../lib/pause/accounts";
 import { formatSol, shortAddress } from "../../lib/pause/format";
 import {
+  applyChangeInstruction,
   approveWithdrawalInstruction,
   cancelChangeInstruction,
   releaseWithdrawalInstruction,
@@ -96,6 +97,12 @@ export function useWithdrawalActions(
               )
           )
         : Promise.resolve(false),
+
+    applyChange: () =>
+      run(
+        () => applyChangeInstruction({ vault: vault.address }),
+        () => toast("success", "The change is now in effect.")
+      ),
 
     cancelChange: () =>
       signer
