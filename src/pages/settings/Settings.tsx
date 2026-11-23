@@ -5,7 +5,9 @@ import { useConnectedWallet } from "@solana/kit-plugin-wallet/react";
 import { useClient } from "@solana/react";
 import { CircleAlert, Info } from "lucide-react";
 
+import { GuardianStatus } from "../../components/guardian/GuardianStatus";
 import { useWithdrawalActions } from "../../components/payments/useWithdrawalActions";
+import { useVaultProfiles } from "../../lib/backend";
 import {
   Address,
   Button,
@@ -72,6 +74,10 @@ export function SettingsView({ vault }: { vault: VaultState }) {
   const pending = vault.data.pendingChange.__option === "Some";
   const guardian =
     vault.data.guardian.__option === "Some" ? vault.data.guardian.value : null;
+  const { profiles, refresh: refreshProfiles } = useVaultProfiles([
+    vault.address,
+  ]);
+  const profile = profiles[vault.address];
   const blocked = pending
     ? "Another change is waiting. Cancel it or let it apply first."
     : null;
@@ -107,7 +113,22 @@ export function SettingsView({ vault }: { vault: VaultState }) {
       <Card className="flex flex-col gap-4">
         <span className="text-small text-text-2">Your guardian</span>
         {guardian ? (
-          <Address value={guardian} />
+          <>
+            <span className="flex flex-wrap items-center gap-2">
+              {profile?.guardianName && (
+                <span className="text-h3 font-semibold md:text-h3-lg">
+                  {profile.guardianName}
+                </span>
+              )}
+              <Address value={guardian} />
+            </span>
+            <GuardianStatus
+              vault={vault.address}
+              guardian={guardian}
+              profile={profile}
+              onChanged={() => void refreshProfiles()}
+            />
+          </>
         ) : (
           <p className="flex items-start gap-2">
             <CircleAlert

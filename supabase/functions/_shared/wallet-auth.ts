@@ -1,11 +1,4 @@
-import {
-  address,
-  getBase64Encoder,
-  getPublicKeyFromAddress,
-  type SignatureBytes,
-  verifySignature,
-} from "@solana/kit";
-
+import { decodeBase58, decodeBase64 } from "./base58.ts";
 import {
   MESSAGE_MAX_AGE_MS,
   parseWalletMessage,
@@ -44,18 +37,29 @@ export async function verifyWalletMessage(input: {
     );
 
   let signatureBytes: Uint8Array;
+  let publicKeyBytes: Uint8Array;
   try {
-    signatureBytes = getBase64Encoder().encode(input.signature) as Uint8Array;
+    signatureBytes = decodeBase64(input.signature);
+    publicKeyBytes = decodeBase58(parsed.wallet);
   } catch {
     throw new AuthError("The signature isn't valid.");
   }
-  if (signatureBytes.length !== 64)
+  if (signatureBytes.length !== 64 || publicKeyBytes.length !== 32) {
     throw new AuthError("The signature isn't valid.");
+  }
 
-  const publicKey = await getPublicKeyFromAddress(address(parsed.wallet));
-  const ok = await verifySignature(
+  // A Solana address is the ed25519 public key itself.
+  const publicKey = await crypto.subtle.importKey(
+    "raw",
+    publicKeyBytes,
+    { name: "Ed25519" },
+    false,
+    ["verify"]
+  );
+  const ok = await crypto.subtle.verify(
+    { name: "Ed25519" },
     publicKey,
-    signatureBytes as SignatureBytes,
+    signatureBytes,
     new TextEncoder().encode(input.message)
   );
   if (!ok) throw new AuthError("The signature doesn't match the wallet.");

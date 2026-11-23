@@ -4,8 +4,8 @@ import { AppShell } from "./components/layout/AppShell";
 import { GuardianHome } from "./pages/guardian/GuardianHome";
 import { History } from "./pages/history/History";
 import { Home } from "./pages/Home";
+import { Invite } from "./pages/invite/Invite";
 import { NotFound } from "./pages/NotFound";
-import { Placeholder } from "./pages/Placeholder";
 import { Settings } from "./pages/settings/Settings";
 import { Setup } from "./pages/setup/Setup";
 import { PaymentDetail } from "./pages/payment/PaymentDetail";
@@ -23,10 +23,7 @@ const router = createBrowserRouter([
       { path: "/vault/withdraw", element: <Withdraw /> },
       { path: "/vaults/:vault/payments/:id", element: <PaymentDetail /> },
       { path: "/guardian", element: <GuardianHome /> },
-      {
-        path: "/invite/:code",
-        element: <Placeholder screen={9} title="Guardian invite" />,
-      },
+      { path: "/invite/:code", element: <Invite /> },
       { path: "/settings", element: <Settings /> },
       { path: "/history", element: <History /> },
       { path: "*", element: <NotFound /> },

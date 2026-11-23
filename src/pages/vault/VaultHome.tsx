@@ -2,7 +2,10 @@ import { useState } from "react";
 import { Link, Navigate } from "react-router";
 import { CircleAlert } from "lucide-react";
 
+import { GuardianStatus } from "../../components/guardian/GuardianStatus";
 import { WaitingRow } from "../../components/payments/WaitingRow";
+import { useVaultProfiles } from "../../lib/backend";
+import type { Address as AddressType } from "@solana/kit";
 import { paidAddresses, urgentReasons } from "../../lib/pause/withdrawals";
 import { Address, Button, Card } from "../../components/ui";
 import type { VaultState, WithdrawalState } from "../../lib/pause/accounts";
@@ -192,15 +195,7 @@ function GuardianCard({ vault }: { vault: VaultState }) {
       </Card>
     );
   }
-  return (
-    <Card className="flex flex-col gap-4">
-      <p className="text-small text-text-2">Your guardian</p>
-      <Address value={guardian.value} />
-      <p className="text-small text-text-2">
-        They can stop any withdrawal while it waits, and approve one early.
-      </p>
-    </Card>
-  );
+  return <GuardianCardNamed vault={vault} guardian={guardian.value} />;
 }
 
 /**
@@ -246,5 +241,35 @@ function TheftBanner({
         Review it
       </Link>
     </div>
+  );
+}
+
+function GuardianCardNamed({
+  vault,
+  guardian,
+}: {
+  vault: VaultState;
+  guardian: AddressType;
+}) {
+  const { profiles, refresh } = useVaultProfiles([vault.address]);
+  const profile = profiles[vault.address];
+  return (
+    <Card className="flex flex-col gap-4">
+      <p className="text-small text-text-2">Your guardian</p>
+      <span className="flex flex-wrap items-center gap-2">
+        {profile?.guardianName && (
+          <span className="text-h3 font-semibold md:text-h3-lg">
+            {profile.guardianName}
+          </span>
+        )}
+        <Address value={guardian} />
+      </span>
+      <GuardianStatus
+        vault={vault.address}
+        guardian={guardian}
+        profile={profile}
+        onChanged={() => void refresh()}
+      />
+    </Card>
   );
 }

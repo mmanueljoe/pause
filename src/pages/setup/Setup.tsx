@@ -30,6 +30,8 @@ import { createVaultInstruction } from "../../lib/pause/instructions";
 import { useSendPause } from "../../lib/pause/send";
 import type { AppClient } from "../../lib/solana/client";
 import { useNow } from "../../lib/useNow";
+import { BACKEND_ENABLED } from "../../lib/backend";
+import { InviteLinkPanel } from "../../components/guardian/InviteLinkPanel";
 import {
   MAX_UNITS,
   plural,
@@ -49,6 +51,7 @@ export function Setup() {
   const [step, setStep] = useState(0);
   const [wait, setWait] = useState<WaitChoice>({ kind: "preset", units: 24 });
   const [guardian, setGuardian] = useState("");
+  const [guardianName, setGuardianName] = useState("");
   const [created, setCreated] = useState(false);
 
   if (!wallet) {
@@ -67,7 +70,14 @@ export function Setup() {
     );
   }
   if (created)
-    return <Created waitUnits={unitsOf(wait)} guardian={guardian as Address} />;
+    return (
+      <Created
+        waitUnits={unitsOf(wait)}
+        guardian={guardian as Address}
+        guardianName={guardianName}
+        vault={ownVaultAddress}
+      />
+    );
   if (isLoading || !ownVaultAddress) {
     return (
       <p className="py-24 text-center text-text-2" role="status">
@@ -89,6 +99,8 @@ export function Setup() {
           owner={wallet}
           guardian={guardian}
           setGuardian={setGuardian}
+          guardianName={guardianName}
+          setGuardianName={setGuardianName}
           onBack={() => setStep(0)}
           onNext={() => setStep(2)}
         />
@@ -97,6 +109,7 @@ export function Setup() {
         <ReviewStep
           waitUnits={unitsOf(wait)!}
           guardian={guardian as Address}
+          guardianName={guardianName}
           onEdit={setStep}
           onCreated={() => setCreated(true)}
         />
@@ -262,18 +275,25 @@ export function GuardianStep({
   owner,
   guardian,
   setGuardian,
+  guardianName,
+  setGuardianName,
   onBack,
   onNext,
 }: {
   owner: Address;
   guardian: string;
   setGuardian: (g: string) => void;
+  guardianName: string;
+  setGuardianName: (name: string) => void;
   onBack: () => void;
   onNext: () => void;
 }) {
   const [touched, setTouched] = useState(false);
   const error = guardianError(owner, guardian);
-  const valid = guardian.trim() !== "" && !error;
+  const valid =
+    guardian.trim() !== "" &&
+    !error &&
+    (!BACKEND_ENABLED || guardianName.trim() !== "");
 
   return (
     <>
@@ -281,6 +301,17 @@ export function GuardianStep({
         title="Who should be able to stop a payment?"
         body="Pick someone you trust, like a brother, sister or close friend. They need their own Solana wallet."
       />
+      {BACKEND_ENABLED && (
+        <Input
+          label="Their first name"
+          placeholder="Their first name"
+          autoComplete="off"
+          maxLength={40}
+          value={guardianName}
+          onChange={(e) => setGuardianName(e.target.value)}
+          help={'We use it in alerts, like "Kofi will be told."'}
+        />
+      )}
       <Input
         label="Their Solana wallet address"
         placeholder="Paste their address"
@@ -351,6 +382,7 @@ function CanList({
 // ---------- Step 3: review ----------
 
 export function ReviewStep({
+  guardianName = "",
   waitUnits,
   guardian,
   onEdit,
@@ -358,6 +390,7 @@ export function ReviewStep({
 }: {
   waitUnits: number;
   guardian: Address;
+  guardianName?: string;
   onEdit: (step: number) => void;
   onCreated: () => void;
 }) {
@@ -404,8 +437,11 @@ export function ReviewStep({
           onEdit={() => onEdit(1)}
           disabled={isSending}
         >
-          <span className="text-body font-normal">
-            <AddressText value={guardian} />
+          <span className="flex flex-wrap items-center gap-2">
+            {guardianName.trim() && <span>{guardianName.trim()}</span>}
+            <span className="text-body font-normal">
+              <AddressText value={guardian} />
+            </span>
           </span>
         </SummaryRow>
       </Card>
@@ -490,11 +526,16 @@ function NextStep({ n, children }: { n: number; children: React.ReactNode }) {
 export function Created({
   waitUnits,
   guardian,
+  guardianName = "",
+  vault,
 }: {
   waitUnits: number | null;
   guardian: Address;
+  guardianName?: string;
+  vault: Address | null;
 }) {
   const navigate = useNavigate();
+  const who = guardianName.trim() || "your guardian";
   return (
     <Column>
       <CircleCheck
@@ -505,18 +546,43 @@ export function Created({
       />
       <Heading
         title="Your vault is ready."
-        body={`Every withdrawal now waits ${waitUnits ? plural(waitUnits) : "the time you chose"}, and your guardian can stop it.`}
+        body={`Every withdrawal now waits ${waitUnits ? plural(waitUnits) : "the time you chose"}, and ${who} can stop it.`}
       />
-      <Card className="flex flex-col gap-1">
-        <span className="text-small text-text-2">Your guardian</span>
-        <AddressText value={guardian} />
-        <span className="text-small text-text-3">
-          Let them know they're your guardian. They'll see waiting payments when
-          they connect their wallet to Pause.
-        </span>
+      <Card className="flex flex-col gap-4">
+        <div className="flex flex-col gap-1">
+          <span className="text-small text-text-2">Your guardian</span>
+          <span className="flex flex-wrap items-center gap-2">
+            {guardianName.trim() && (
+              <span className="text-h3 font-semibold md:text-h3-lg">
+                {guardianName.trim()}
+              </span>
+            )}
+            <AddressText value={guardian} />
+          </span>
+        </div>
+        {BACKEND_ENABLED && vault ? (
+          <>
+            <hr className="border-line" />
+            <p className="text-small text-text-2">
+              Last step: invite {who}, so they get an email when a payment looks
+              like theft.
+            </p>
+            <InviteLinkPanel vault={vault} guardianName={guardianName} />
+          </>
+        ) : (
+          <span className="text-small text-text-3">
+            Let them know they're your guardian. They'll see waiting payments
+            when they connect their wallet to Pause.
+          </span>
+        )}
       </Card>
       <Footer>
-        <Button onClick={() => navigate("/vault")}>Go to your vault</Button>
+        <Button
+          variant={BACKEND_ENABLED ? "secondary" : "primary"}
+          onClick={() => navigate("/vault")}
+        >
+          Go to your vault
+        </Button>
       </Footer>
     </Column>
   );
