@@ -25,7 +25,8 @@ export function parseSol(input: string): Lamports | null {
 
 /** "2r1M…yNVy": first 4 and last 4 characters. */
 export function shortAddress(address: Address | string): string {
-  return `${address.slice(0, 4)}…${address.slice(-4)}`;
+  // Word joiners keep "2r1M…yNVy" on one line.
+  return `${address.slice(0, 4)}\u2060…\u2060${address.slice(-4)}`;
 }
 
 /** "5:42:10" (hours:minutes:seconds) or "42:10" under an hour. */
@@ -123,4 +124,24 @@ export function lamportsToInput(amount: bigint): string {
     .padStart(9, "0")
     .replace(/0+$/, "");
   return fraction ? `${whole}.${fraction}` : `${whole}`;
+}
+
+/** What a waiting less-safe change does, in words. */
+export function describeChange(
+  kind:
+    | {
+        __kind: "Guardian";
+        newGuardian: { __option: "Some"; value: string } | { __option: "None" };
+      }
+    | { __kind: "WithdrawalWait"; newWaitSecs: bigint },
+  hasGuardianNow: boolean
+): string {
+  if (kind.__kind === "WithdrawalWait") {
+    return `shorten the withdrawal wait to ${formatWait(kind.newWaitSecs)}`;
+  }
+  if (kind.newGuardian.__option === "None") return "remove the guardian";
+  const who = shortAddress(kind.newGuardian.value);
+  return hasGuardianNow
+    ? `change the guardian to ${who}`
+    : `add ${who} as guardian`;
 }

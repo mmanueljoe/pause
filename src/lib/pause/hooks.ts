@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { type Address, address } from "@solana/kit";
 import { useConnectedWallet } from "@solana/kit-plugin-wallet/react";
 import { useClient } from "@solana/react";
@@ -277,4 +277,75 @@ export function useWithdrawalAddress(vault: Address | null, id: bigint | null) {
     vault !== null && id !== null ? () => withdrawalAddress(vault, id) : null,
     [vault, id === null ? null : String(id)]
   );
+}
+
+/**
+ * Calls `onChange` whenever any Pause account changes on Solana (a request,
+ * stop, approval, release or settings change anywhere). Lets lists that can't
+ * subscribe account by account refresh within a second.
+ */
+export function usePauseProgramChanges(onChange: () => void) {
+  const { rpcSubscriptions } = useClient<AppClient>();
+  const latest = useRef(onChange);
+  useEffect(() => {
+    latest.current = onChange;
+  });
+  useEffect(() => {
+    const controller = new AbortController();
+    (async () => {
+      const notifications = await rpcSubscriptions
+        .programNotifications(PAUSE_PROGRAM_ADDRESS, {
+          commitment,
+          encoding: "base64",
+        })
+        .subscribe({ abortSignal: controller.signal });
+      for await (const _ of notifications) latest.current();
+    })().catch(() => {
+      // Subscription closed or unavailable: the lists still poll as a fallback.
+    });
+    return () => controller.abort();
+  }, [rpcSubscriptions]);
+}
+
+/** Every withdrawal of several vaults, by vault address. */
+export function useWithdrawalsOfVaults(vaults: Address[]) {
+  const { rpc } = useClient<AppClient>();
+  const key = vaults.length ? ["withdrawals-of", ...vaults] : null;
+  const { data, isLoading, error, mutate } = useRequestSWR(
+    key,
+    vaults.length
+      ? async (signal: AbortSignal) => {
+          const lists = await Promise.all(
+            vaults.map((vault) =>
+              rpc
+                .getProgramAccounts(PAUSE_PROGRAM_ADDRESS, {
+                  commitment,
+                  encoding: "base64",
+                  filters: withdrawalsOfVaultFilters(vault),
+                })
+                .send({ abortSignal: signal })
+            )
+          );
+          const byVault = new Map<string, WithdrawalState[]>();
+          vaults.forEach((vault, i) =>
+            byVault.set(
+              vault,
+              lists[i]
+                .map(({ pubkey, account }) =>
+                  decodeWithdrawalAccount(pubkey, account)
+                )
+                .filter((w): w is WithdrawalState => w !== null)
+            )
+          );
+          return byVault;
+        }
+      : null,
+    { refreshInterval: 15_000, keepPreviousData: true }
+  );
+  return {
+    byVault: data ?? new Map<string, WithdrawalState[]>(),
+    isLoading,
+    error,
+    refresh: mutate,
+  };
 }

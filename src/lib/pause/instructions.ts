@@ -3,6 +3,7 @@ import { type Address, type TransactionSigner } from "@solana/kit";
 import {
   getCreateVaultInstructionAsync,
   getApproveWithdrawalInstruction,
+  getCancelChangeInstruction,
   getDepositInstructionAsync,
   getReleaseWithdrawalInstruction,
   getRequestWithdrawalInstructionAsync,
@@ -105,4 +106,12 @@ export async function releaseWithdrawalInstruction(input: {
     ...input,
     ...(await eventAccounts()),
   });
+}
+
+/** US-10, US-16: the owner or current guardian cancels the waiting change. */
+export async function cancelChangeInstruction(input: {
+  authority: TransactionSigner;
+  vault: Address;
+}) {
+  return getCancelChangeInstruction({ ...input, ...(await eventAccounts()) });
 }
