@@ -5,6 +5,7 @@ import { Home } from "./pages/Home";
 import { NotFound } from "./pages/NotFound";
 import { Placeholder } from "./pages/Placeholder";
 import { Setup } from "./pages/setup/Setup";
+import { VaultHome } from "./pages/vault/VaultHome";
 
 /** One URL per screen (docs/requirements.md, Screens). */
 const router = createBrowserRouter([
@@ -13,10 +14,7 @@ const router = createBrowserRouter([
     children: [
       { path: "/", element: <Home /> },
       { path: "/setup", element: <Setup /> },
-      {
-        path: "/vault",
-        element: <Placeholder screen={5} title="Your vault" />,
-      },
+      { path: "/vault", element: <VaultHome /> },
       {
         path: "/vault/withdraw",
         element: <Placeholder screen={7} title="Withdraw" />,

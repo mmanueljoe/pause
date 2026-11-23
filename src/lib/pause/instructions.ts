@@ -2,6 +2,7 @@ import { type Address, type TransactionSigner } from "@solana/kit";
 
 import {
   getCreateVaultInstructionAsync,
+  getDepositInstructionAsync,
   PAUSE_PROGRAM_ADDRESS,
 } from "../../generated/pause";
 import { eventAuthorityAddress } from "./addresses";
@@ -30,6 +31,18 @@ export async function createVaultInstruction(input: {
     guardian: input.guardian,
     withdrawalWaitSecs: BigInt(input.withdrawalWaitSecs),
     guardianWaitSecs: BigInt(input.guardianWaitSecs),
+    ...(await eventAccounts()),
+  });
+}
+
+/** US-4: move SOL from the owner's wallet into their vault. Instant. */
+export async function depositInstruction(input: {
+  owner: TransactionSigner;
+  amountLamports: bigint;
+}) {
+  return getDepositInstructionAsync({
+    owner: input.owner,
+    amountLamports: input.amountLamports,
     ...(await eventAccounts()),
   });
 }

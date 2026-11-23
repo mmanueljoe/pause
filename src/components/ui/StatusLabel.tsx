@@ -22,7 +22,7 @@ export function StatusLabel({ status, children }: StatusLabelProps) {
   return (
     <span
       className={cx(
-        "inline-flex items-center gap-1 rounded-full py-1 pr-3 pl-2 text-small",
+        "inline-flex items-center gap-1 rounded-full py-1 pr-3 pl-2 text-small whitespace-nowrap",
         styles[status]
       )}
     >

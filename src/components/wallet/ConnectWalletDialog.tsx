@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { ExternalLink, LoaderCircle, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ExternalLink, LoaderCircle } from "lucide-react";
 import {
   useConnect,
   useConnectedWallet,
@@ -11,7 +11,7 @@ import { useClient } from "@solana/react";
 import phantomIcon from "../../assets/wallets/phantom.svg";
 import solflareIcon from "../../assets/wallets/solflare.svg";
 import type { AppClient } from "../../lib/solana/client";
-import { cx } from "../ui/cx";
+import { Dialog } from "../ui/Dialog";
 
 /** Wallets we always list, even when not installed (with a Get link). */
 const KNOWN_WALLETS = [
@@ -35,8 +35,7 @@ const KNOWN_WALLETS = [
 const isPhone = () => /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
 /**
- * Screen 2: Connect wallet. Modal on laptop, sheet on phone. Uses the native
- * <dialog> for focus trapping, Esc to close and returning focus afterwards.
+ * Screen 2: Connect wallet. Modal on laptop, sheet on phone.
  */
 export function ConnectWalletDialog({ onClose }: { onClose: () => void }) {
   const client = useClient<AppClient>();
@@ -45,16 +44,6 @@ export function ConnectWalletDialog({ onClose }: { onClose: () => void }) {
   const connected = useConnectedWallet(client);
   const { dispatch: connect, isRunning, error } = useConnect(client);
   const [chosen, setChosen] = useState<string | null>(null);
-  const dialogRef = useRef<HTMLDialogElement>(null);
-
-  // Open as a modal on mount. No close() in cleanup: closing fires the
-  // dialog's "close" event, which would unmount it straight away (React runs
-  // effects twice in development). Unmounting removes the dialog anyway.
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    if (dialog && !dialog.open) dialog.showModal();
-  }, []);
-
   // Close once a wallet is connected.
   useEffect(() => {
     if (connected) onClose();
@@ -75,35 +64,8 @@ export function ConnectWalletDialog({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <dialog
-      ref={dialogRef}
-      onClose={onClose}
-      onClick={(e) => e.target === dialogRef.current && onClose()}
-      aria-labelledby="connect-title"
-      className={cx(
-        "m-0 w-full max-w-none bg-transparent p-0 text-text backdrop:bg-bg/80",
-        "fixed inset-x-0 top-auto bottom-0",
-        "md:inset-0 md:m-auto md:h-fit md:max-w-[440px]"
-      )}
-    >
-      <div className="flex flex-col gap-4 rounded-t-card border border-line bg-surface-1 p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] md:rounded-card md:pb-6">
-        <div className="flex items-start gap-4">
-          <h2
-            id="connect-title"
-            className="flex-1 text-h3 font-semibold md:text-h3-lg"
-          >
-            Connect your wallet
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="focus-ring -m-3 inline-flex size-11 items-center justify-center rounded-full text-text-2 hover:text-text"
-            aria-label="Close"
-          >
-            <X size={20} strokeWidth={1.5} aria-hidden />
-          </button>
-        </div>
-
+    <Dialog title="Connect your wallet" onClose={onClose}>
+      <div className="-mt-2 flex flex-col gap-4">
         <p className="text-small text-text-2">
           {phoneWithoutWallet
             ? "On a phone, Pause works inside your wallet app. Open it there, then connect."
@@ -204,7 +166,7 @@ export function ConnectWalletDialog({ onClose }: { onClose: () => void }) {
           </a>
         </p>
       </div>
-    </dialog>
+    </Dialog>
   );
 }
 
