@@ -5,6 +5,7 @@ import { GuardianHome } from "./pages/guardian/GuardianHome";
 import { Home } from "./pages/Home";
 import { NotFound } from "./pages/NotFound";
 import { Placeholder } from "./pages/Placeholder";
+import { Settings } from "./pages/settings/Settings";
 import { Setup } from "./pages/setup/Setup";
 import { PaymentDetail } from "./pages/payment/PaymentDetail";
 import { VaultHome } from "./pages/vault/VaultHome";
@@ -25,10 +26,7 @@ const router = createBrowserRouter([
         path: "/invite/:code",
         element: <Placeholder screen={9} title="Guardian invite" />,
       },
-      {
-        path: "/settings",
-        element: <Placeholder screen={11} title="Settings" />,
-      },
+      { path: "/settings", element: <Settings /> },
       {
         path: "/history",
         element: <Placeholder screen={12} title="History" />,

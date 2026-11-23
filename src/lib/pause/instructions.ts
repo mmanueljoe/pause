@@ -1,10 +1,13 @@
-import { type Address, type TransactionSigner } from "@solana/kit";
+import { type Address, none, some, type TransactionSigner } from "@solana/kit";
 
 import {
   getCreateVaultInstructionAsync,
+  getApplyChangeInstruction,
   getApproveWithdrawalInstruction,
+  getChangeWithdrawalWaitInstructionAsync,
   getCancelChangeInstruction,
   getDepositInstructionAsync,
+  getProposeGuardianChangeInstructionAsync,
   getReleaseWithdrawalInstruction,
   getRequestWithdrawalInstructionAsync,
   getStopWithdrawalInstruction,
@@ -114,4 +117,36 @@ export async function cancelChangeInstruction(input: {
   vault: Address;
 }) {
   return getCancelChangeInstruction({ ...input, ...(await eventAccounts()) });
+}
+
+/** US-11: longer applies at once; shorter waits the guardian wait. */
+export async function changeWithdrawalWaitInstruction(input: {
+  owner: TransactionSigner;
+  newWaitSecs: number;
+}) {
+  return getChangeWithdrawalWaitInstructionAsync({
+    owner: input.owner,
+    newWaitSecs: BigInt(input.newWaitSecs),
+    ...(await eventAccounts()),
+  });
+}
+
+/**
+ * US-10, US-19: propose a new guardian (an address) or removing the guardian
+ * (null). Always waits the guardian wait.
+ */
+export async function proposeGuardianChangeInstruction(input: {
+  owner: TransactionSigner;
+  newGuardian: Address | null;
+}) {
+  return getProposeGuardianChangeInstructionAsync({
+    owner: input.owner,
+    newGuardian: input.newGuardian === null ? none() : some(input.newGuardian),
+    ...(await eventAccounts()),
+  });
+}
+
+/** Anyone makes the waiting change real once its wait has ended. */
+export async function applyChangeInstruction(input: { vault: Address }) {
+  return getApplyChangeInstruction({ ...input, ...(await eventAccounts()) });
 }
