@@ -1,6 +1,8 @@
 // The guardian accepts an invite (FR-13): proves the wallet is theirs with a
 // free signed message, gives an email for alerts, and uses up the link.
+// They then get a welcome email so they can check it isn't in spam.
 import { serviceClient, useSignatureOnce } from "../_shared/db.ts";
+import { sendEmail, welcomeEmail } from "../_shared/email.ts";
 import { corsHeaders, fail, json } from "../_shared/http.ts";
 import { hashInviteCode, isInviteCode } from "../_shared/invites.ts";
 import { readVault } from "../_shared/solana.ts";
@@ -68,7 +70,10 @@ Deno.serve(async (req) => {
       .select("owner_name")
       .eq("vault", signed.vault)
       .single();
-    return json({ ok: true, ownerName: profile?.owner_name ?? null });
+    const ownerName = profile?.owner_name ?? null;
+    // A failed email never undoes the accept: they still get in-app alerts.
+    await sendEmail(welcomeEmail({ to: email, ownerName }));
+    return json({ ok: true, ownerName });
   } catch (error) {
     if (error instanceof AuthError) return fail(error.message, 401);
     console.error(error);

@@ -16,13 +16,17 @@
  */
 
 export type WalletAction =
-  "save guardian details" | "accept invite" | "save my email";
+  | "save guardian details"
+  | "accept invite"
+  | "save my email"
+  | "stop emailing me";
 
 /** Detail lines each action may carry, in this order. */
 export const ACTION_DETAILS: Record<WalletAction, readonly string[]> = {
   "save guardian details": ["Your name", "Guardian name", "Time zone"],
   "accept invite": ["Email"],
   "save my email": ["Email"],
+  "stop emailing me": [],
 };
 
 /** How long a signed message stays valid. */

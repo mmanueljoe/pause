@@ -1,5 +1,6 @@
 // First names and invite status for vaults, so screens can say "Kofi"
-// instead of an address. Never returns emails or time zones.
+// instead of an address. Never returns emails or time zones (only whether
+// the owner turned emails on).
 import { serviceClient } from "../_shared/db.ts";
 import { corsHeaders, fail, json } from "../_shared/http.ts";
 
@@ -22,7 +23,7 @@ Deno.serve(async (req) => {
     const [{ data: profiles }, { data: contacts }] = await Promise.all([
       db
         .from("vault_profiles")
-        .select("vault, owner_name, guardian_name")
+        .select("vault, owner_name, guardian_name, owner_email")
         .in("vault", vaults),
       db
         .from("guardian_contacts")
@@ -34,6 +35,7 @@ Deno.serve(async (req) => {
       result[p.vault] = {
         ownerName: p.owner_name,
         guardianName: p.guardian_name,
+        ownerEmailOn: p.owner_email !== null,
         // Guardians who accepted (and so get email alerts) for this vault.
         acceptedGuardians: (contacts ?? [])
           .filter((c) => c.vault === p.vault)

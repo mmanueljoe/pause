@@ -46,8 +46,9 @@ import {
 } from "../../lib/pause/waitChoices";
 import type { AppClient } from "../../lib/solana/client";
 import { useNow } from "../../lib/useNow";
+import { EmailSettings } from "./EmailSettings";
 
-/** Screen 11: Settings (US-10, US-11). Owner only. */
+/** Screen 11: Settings (US-10, US-11, and owner emails for FR-9/FR-17). Owner only. */
 export function Settings() {
   const wallet = useWalletAddress();
   const vaultAddress = useVaultAddress(wallet);
@@ -167,6 +168,12 @@ export function SettingsView({ vault }: { vault: VaultState }) {
       </Card>
 
       {blocked && <p className="text-small text-text-2">{blocked}</p>}
+
+      <EmailSettings
+        vault={vault.address}
+        profile={profile}
+        onChanged={() => void refreshProfiles()}
+      />
 
       {editing === "wait" && (
         <WaitDialog vault={vault} onClose={() => setEditing(null)} />
