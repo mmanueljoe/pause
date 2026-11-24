@@ -94,6 +94,8 @@ export function useSignWalletMessage() {
 export type VaultProfile = {
   ownerName: string | null;
   guardianName: string | null;
+  /** The owner gave an email in Settings (the address itself is never sent). */
+  ownerEmailOn: boolean;
   /** Guardians who accepted their invite (and so get email alerts). */
   acceptedGuardians: string[];
 };
