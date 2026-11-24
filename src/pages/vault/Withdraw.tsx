@@ -6,6 +6,7 @@ import { useClient } from "@solana/react";
 import { ChevronLeft, Clock } from "lucide-react";
 
 import { Button, ChoiceCard, Input, useToast } from "../../components/ui";
+import { useVaultProfiles } from "../../lib/backend";
 import {
   formatArrival,
   formatSol,
@@ -53,7 +54,11 @@ export function Withdraw() {
       available={vault.available}
       nextWithdrawalId={vault.data.nextWithdrawalId}
       waitSecs={Number(vault.data.withdrawalWaitSecs)}
-      hasGuardian={vault.data.guardian.__option === "Some"}
+      guardian={
+        vault.data.guardian.__option === "Some"
+          ? vault.data.guardian.value
+          : null
+      }
       rescue={rescue}
     />
   );
@@ -65,7 +70,7 @@ export function WithdrawForm({
   available,
   nextWithdrawalId,
   waitSecs,
-  hasGuardian,
+  guardian,
   rescue,
 }: {
   owner: Address;
@@ -73,7 +78,7 @@ export function WithdrawForm({
   available: bigint;
   nextWithdrawalId: bigint;
   waitSecs: number;
-  hasGuardian: boolean;
+  guardian: Address | null;
   rescue: boolean;
 }) {
   const client = useClient<AppClient>();
@@ -82,6 +87,12 @@ export function WithdrawForm({
   const toast = useToast();
   const now = useNow(30_000);
   const { send, isSending } = useSendPause();
+  const { profiles, loaded } = useVaultProfiles([vaultAddress]);
+  const profile = profiles[vaultAddress];
+  const guardianName = profile?.guardianName ?? null;
+  // FR-8: say whether the guardian gets an email (only after accepting the invite).
+  const guardianTold =
+    guardian && loaded ? profile?.acceptedGuardians.includes(guardian) : null;
 
   const [destination, setDestination] = useState<"mine" | "other">(
     rescue ? "other" : "mine"
@@ -158,9 +169,9 @@ export function WithdrawForm({
         </h1>
         {rescue && (
           <p className="text-text-2">
-            Move everything to a new wallet that only you control. Then ask your
-            guardian to approve it now, so it arrives at once and nobody can
-            stop it.
+            Move everything to a new wallet that only you control. Then ask{" "}
+            {guardianName ?? "your guardian"} to approve it now, so it arrives
+            at once and nobody can stop it.
           </p>
         )}
       </div>
@@ -247,9 +258,9 @@ export function WithdrawForm({
           <p>
             Arrives {arrives}.{" "}
             {rescue
-              ? "Ask your guardian to approve it now, so it arrives at once."
-              : hasGuardian
-                ? "Your guardian can stop it until then."
+              ? `Ask ${guardianName ?? "your guardian"} to approve it now, so it arrives at once.`
+              : guardian
+                ? guardianLine(guardianName, guardianTold)
                 : "You can stop it until then."}
           </p>
         </div>
@@ -285,4 +296,17 @@ export function WithdrawForm({
       )}
     </div>
   );
+}
+
+/** What the preview says about the guardian (FR-8). */
+function guardianLine(
+  name: string | null,
+  told: boolean | null | undefined
+): string {
+  const who = name ?? "Your guardian";
+  if (told === true) return `${who} will be told. They can stop it until then.`;
+  if (told === false) {
+    return `${who} can stop it until then. They can see it in Pause, but won't get an email until they accept your invite.`;
+  }
+  return `${who} can stop it until then.`;
 }

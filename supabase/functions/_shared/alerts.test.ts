@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+  arrivalEmail,
   formatSol,
   formatTime,
   formatWait,
@@ -173,4 +174,22 @@ test("removing the guardian tells the guardian plainly", () => {
     email.subject,
     "Ama's wallet asked to remove you as guardian. Was this Ama?"
   );
+});
+
+test("arrival email says where the money went", () => {
+  const own = arrivalEmail("ama@example.com", {
+    amountLamports: 2n * SOL,
+    recipient: "OWNER",
+    ownerWallet: "OWNER",
+    early: false,
+  });
+  assert.equal(own.subject, "2 SOL arrived in your wallet");
+  const other = arrivalEmail("ama@example.com", {
+    amountLamports: 2n * SOL,
+    recipient: "RecipientAddress1111111111111111111111111111",
+    ownerWallet: "OWNER",
+    early: true,
+  });
+  assert.equal(other.subject, "2 SOL reached Reci…1111");
+  assert.match(other.paragraphs[0], /approved early by your guardian\.$/);
 });

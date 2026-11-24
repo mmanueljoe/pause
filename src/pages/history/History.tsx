@@ -12,6 +12,7 @@ import {
 
 import { Button } from "../../components/ui";
 import { cx } from "../../components/ui/cx";
+import { useVaultProfiles } from "../../lib/backend";
 import type { VaultState } from "../../lib/pause/accounts";
 import { explorerUrl } from "../../lib/pause/addresses";
 import { formatTime, shortAddress } from "../../lib/pause/format";
@@ -93,6 +94,9 @@ function VaultHistory({ source, me }: { source: Source; me: Address }) {
     limit
   );
   usePauseProgramChanges(() => void refresh());
+  const { profiles } = useVaultProfiles([source.vault.address]);
+  const profile = profiles[source.vault.address];
+  const guardian = source.vault.data.guardian;
 
   if (error && items.length === 0) {
     return (
@@ -112,7 +116,12 @@ function VaultHistory({ source, me }: { source: Source; me: Address }) {
     items,
     source.viewer,
     me,
-    source.vault.data.owner
+    source.vault.data.owner,
+    {
+      owner: profile?.ownerName,
+      guardian: profile?.guardianName,
+      currentGuardian: guardian.__option === "Some" ? guardian.value : null,
+    }
   );
   return (
     <HistoryView

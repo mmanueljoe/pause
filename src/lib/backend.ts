@@ -11,6 +11,7 @@ import {
   buildWalletMessage,
   type WalletAction,
 } from "../../supabase/functions/_shared/message";
+import type { SavedAlert } from "./pause/withdrawals";
 import type { AppClient } from "./solana/client";
 
 const URL = import.meta.env.VITE_SUPABASE_URL;
@@ -107,7 +108,31 @@ export function useVaultProfiles(vaults: Address[]) {
   const { data, mutate } = useSWR(key, () =>
     callFunction<Record<string, VaultProfile>>("vault-profile", { vaults })
   );
-  return { profiles: data ?? {}, refresh: mutate };
+  return {
+    profiles: data ?? {},
+    /** True once the backend answered (always false without a backend). */
+    loaded: data !== undefined,
+    refresh: mutate,
+  };
+}
+
+/** Saved alerts by vault, then by withdrawal id ("7"). Missing = not seen. */
+export type VaultAlerts = Record<string, Record<string, SavedAlert>>;
+
+/**
+ * How loudly the backend alerted about each withdrawal, and why (Alert
+ * levels, including the night-time rule). Up to 20 vaults per call.
+ */
+export function useVaultAlerts(vaults: Address[]) {
+  const asked = vaults.slice(0, 20);
+  const key =
+    BACKEND_ENABLED && asked.length ? ["vault-alerts", ...asked] : null;
+  const { data } = useSWR(
+    key,
+    () => callFunction<VaultAlerts>("vault-alerts", { vaults: asked }),
+    { refreshInterval: 30_000 }
+  );
+  return data ?? {};
 }
 
 export type InviteInfo = {

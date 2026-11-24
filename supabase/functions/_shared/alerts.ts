@@ -267,3 +267,31 @@ export function ownerChangeEmail(to: string, c: ChangeAlert): Email {
     buttons: [{ label: "Cancel this change", path: "/settings" }],
   };
 }
+
+// ---------- Arrival email (FR-9) ----------
+
+/** "2 SOL arrived in your wallet", or where it went if not to the owner. */
+export function arrivalEmail(
+  to: string,
+  a: {
+    amountLamports: bigint;
+    recipient: string;
+    ownerWallet: string | null;
+    early: boolean;
+  }
+): Email {
+  const sol = formatSol(a.amountLamports);
+  const toOwner = a.recipient === a.ownerWallet;
+  const subject = toOwner
+    ? `${sol} SOL arrived in your wallet`
+    : `${sol} SOL reached ${shortAddress(a.recipient)}`;
+  return {
+    to,
+    subject,
+    paragraphs: [
+      `${subject}${a.early ? ", approved early by your guardian" : ""}.`,
+      "You can check it in your vault's history, with a link to the Solana transaction.",
+    ],
+    buttons: [{ label: "View history", path: "/history" }],
+  };
+}

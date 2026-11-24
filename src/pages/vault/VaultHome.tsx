@@ -4,9 +4,9 @@ import { CircleAlert } from "lucide-react";
 
 import { GuardianStatus } from "../../components/guardian/GuardianStatus";
 import { WaitingRow } from "../../components/payments/WaitingRow";
-import { useVaultProfiles } from "../../lib/backend";
+import { useVaultAlerts, useVaultProfiles } from "../../lib/backend";
 import type { Address as AddressType } from "@solana/kit";
-import { paidAddresses, urgentReasons } from "../../lib/pause/withdrawals";
+import { alertReasons, paidAddresses } from "../../lib/pause/withdrawals";
 import { Address, Button, Card } from "../../components/ui";
 import type { VaultState, WithdrawalState } from "../../lib/pause/accounts";
 import {
@@ -61,12 +61,14 @@ export function VaultHomeView({
   withdrawals: WithdrawalState[];
 }) {
   const [depositing, setDepositing] = useState(false);
+  const { profiles } = useVaultProfiles([vault.address]);
+  const alerts = useVaultAlerts([vault.address]);
   const waiting = withdrawals
     .filter((w) => w.data.status.__kind === "Waiting")
     .sort((a, b) => Number(a.data.releaseAt - b.data.releaseAt));
   const paid = paidAddresses(withdrawals);
   const urgent = waiting.find(
-    (w) => urgentReasons(w, vault, withdrawals).length > 0
+    (w) => alertReasons(w, vault, withdrawals, alerts[vault.address]).length > 0
   );
 
   return (
@@ -75,6 +77,11 @@ export function VaultHomeView({
         <TheftBanner
           withdrawal={urgent}
           isNew={!paid.has(urgent.data.recipient)}
+          guardianName={
+            vault.data.guardian.__option === "Some"
+              ? (profiles[vault.address]?.guardianName ?? null)
+              : null
+          }
           className="lg:col-span-2"
         />
       )}
@@ -205,10 +212,12 @@ function GuardianCard({ vault }: { vault: VaultState }) {
 function TheftBanner({
   withdrawal,
   isNew,
+  guardianName,
   className,
 }: {
   withdrawal: WithdrawalState;
   isNew: boolean;
+  guardianName: string | null;
   className?: string;
 }) {
   const { data } = withdrawal;
@@ -224,7 +233,8 @@ function TheftBanner({
           you?
         </p>
         <p className="text-text-2">
-          If not, stop it now. Then ask your guardian to help you{" "}
+          If not, stop it now. Then ask {guardianName ?? "your guardian"} to
+          help you{" "}
           <Link
             to="/vault/withdraw?rescue=1"
             className="focus-ring rounded text-text underline underline-offset-4"

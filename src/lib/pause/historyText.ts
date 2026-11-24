@@ -29,17 +29,26 @@ export type HistoryLine = {
 
 type Viewer = "owner" | "guardian";
 
+/** First names from the backend. `guardian` is the current guardian's. */
+export type HistoryNames = {
+  owner?: string | null;
+  guardian?: string | null;
+  currentGuardian?: Address | null;
+};
+
 /**
  * Turns events into sentences (FR-18). Walks oldest to newest so each line
  * knows the state at that moment: whether an address was new, and who the
  * guardian was. Routine requests read "You asked…"; ones to a new address
  * read "Your wallet asked…", because after a theft it may not have been you.
+ * First names replace "The owner" and "Your guardian" when known.
  */
 export function toHistoryLines(
   items: HistoryItem[],
   viewer: Viewer,
   me: Address | null,
-  owner: Address
+  owner: Address,
+  names: HistoryNames = {}
 ): HistoryLine[] {
   const oldestFirst = [...items].reverse();
   const paid = new Set<string>();
@@ -48,21 +57,31 @@ export function toHistoryLines(
   const lines: HistoryLine[] = [];
 
   const you = (who: Address) => (who === me ? "You" : null);
-  const ownerName = viewer === "owner" ? "You" : "The owner";
-  const ownerWallet = viewer === "owner" ? "Your wallet" : "The owner's wallet";
+  const theOwner = names.owner ?? "The owner";
+  const ownerName = viewer === "owner" ? "You" : theOwner;
+  const ownerWallet =
+    viewer === "owner"
+      ? "Your wallet"
+      : names.owner
+        ? `${names.owner}'s wallet`
+        : "The owner's wallet";
   const vaultName = viewer === "owner" ? "your vault" : "the vault";
   const recipientName = (r: Address) =>
     r === owner
       ? viewer === "owner"
         ? "your wallet"
-        : "the owner's wallet"
+        : names.owner
+          ? `${names.owner}'s wallet`
+          : "the owner's wallet"
       : shortAddress(r);
   const guardianName = (g: Address) =>
     you(g) ??
     (g === guardian
-      ? viewer === "owner"
-        ? "Your guardian"
-        : "The guardian"
+      ? names.guardian && g === names.currentGuardian
+        ? names.guardian
+        : viewer === "owner"
+          ? "Your guardian"
+          : "The guardian"
       : `Guardian ${shortAddress(g)}`);
 
   oldestFirst.forEach((item, i) => {
@@ -80,8 +99,8 @@ export function toHistoryLines(
             viewer === "owner"
               ? `You created your vault with ${shortAddress(e.data.guardian)} as guardian`
               : e.data.guardian === me
-                ? "The owner created this vault with you as guardian"
-                : "The owner created this vault",
+                ? `${theOwner} created this vault with you as guardian`
+                : `${theOwner} created this vault`,
           detail: `Withdrawals wait ${formatWait(e.data.withdrawalWaitSecs)}`,
         });
         break;

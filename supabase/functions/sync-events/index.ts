@@ -2,10 +2,13 @@
 // 1. Reads new Pause transactions from Solana and records what happened:
 //    withdrawals (with their alert level and reasons), stops, payouts, and
 //    less-safe setting changes.
-// 2. Sends the alert emails that are due (FR-16, FR-17, US-12, US-13).
+// 2. Releases withdrawals whose wait has ended (US-9, FR-12).
+// 3. Sends the emails that are due: alerts (FR-16, FR-17, US-12, US-13) and
+//    arrivals (FR-9, US-6).
 // If this is late or down, no money moves early: Solana still makes every
 // withdrawal wait, and the guardian can still stop it in the app.
 import {
+  arrivalEmail,
   urgentReasons,
   guardianChangeEmail,
   guardianWithdrawalEmail,
@@ -23,11 +26,19 @@ import {
 } from "../_shared/events.ts";
 import { fail, json } from "../_shared/http.ts";
 import { PAUSE_PROGRAM_ADDRESS, readVault, rpc } from "../_shared/solana.ts";
+import {
+  releaseMessage,
+  type Signer,
+  signerFromSeed,
+  signTransaction,
+} from "../_shared/transaction.ts";
 
 /** Transactions read per run, so a long backlog never times out. */
 const MAX_TRANSACTIONS_PER_RUN = 100;
 /** Only email about things this recent: no flood of old alerts on first run. */
 const EMAIL_WINDOW_MS = 15 * 60_000;
+/** Releases tried per run. */
+const MAX_RELEASES_PER_RUN = 10;
 
 type Db = ReturnType<typeof serviceClient>;
 
@@ -43,8 +54,10 @@ Deno.serve(async (req) => {
     if (secretError) throw secretError;
     if (allowed !== true) return fail("Not allowed.", 401);
     const read = await readNewTransactions(db);
+    const releaser = await releaserSigner(db);
+    const released = await releaseDue(db, releaser);
     const sent = await sendDueEmails(db);
-    return json({ read, sent });
+    return json({ read, released, sent, releaser: releaser.address });
   } catch (error) {
     console.error(error);
     return fail("Sync failed.", 500);
@@ -134,6 +147,12 @@ async function recordEvent(
         event.withdrawal,
         event.name === "WithdrawalApproved" ? "approved_early" : "released"
       );
+      const { error: arrivedError } = await db
+        .from("withdrawal_alerts")
+        .update({ arrived_at: at.toISOString() })
+        .eq("withdrawal", event.withdrawal)
+        .is("arrived_at", null);
+      if (arrivedError) throw arrivedError;
       // Only a payment that actually went out makes an address familiar.
       const { error } = await db.from("paid_addresses").upsert(
         {
@@ -256,9 +275,72 @@ async function setWithdrawalStatus(db: Db, withdrawal: string, status: string) {
   if (error) throw error;
 }
 
-// ---------- 2. Send emails ----------
+// ---------- 2. Release ----------
+
+/** The backend's fee-paying wallet; its seed never leaves Supabase Vault. */
+async function releaserSigner(db: Db): Promise<Signer> {
+  const { data: seedHex, error } = await db.rpc("get_releaser_seed");
+  if (error) throw error;
+  if (typeof seedHex !== "string" || !/^[0-9a-f]{64}$/.test(seedHex))
+    throw new Error("Releaser seed is missing from Vault.");
+  const seed = Uint8Array.from(seedHex.match(/../g)!, (h) => parseInt(h, 16));
+  return signerFromSeed(seed);
+}
+
+/**
+ * Sends every withdrawal whose wait has ended to its named recipient. The
+ * program checks the wait and the recipient, so a mistake here can't move
+ * money early or elsewhere; it would just fail. Success shows up as a
+ * WithdrawalReleased event on the next run.
+ */
+async function releaseDue(db: Db, releaser: Signer): Promise<number> {
+  const now = Date.now();
+  const { data: due, error } = await db
+    .from("withdrawal_alerts")
+    .select("withdrawal, vault, recipient")
+    .eq("status", "waiting")
+    .lte("release_at", new Date(now).toISOString())
+    .gte("release_at", new Date(now - 7 * 86_400_000).toISOString())
+    .order("release_at")
+    .limit(MAX_RELEASES_PER_RUN);
+  if (error) throw error;
+  if (!due?.length) return 0;
+
+  const { value: latest } = await rpc<{ value: { blockhash: string } }>(
+    "getLatestBlockhash",
+    [{ commitment: "confirmed" }]
+  );
+  let sent = 0;
+  for (const row of due) {
+    try {
+      const wire = await signTransaction(
+        releaseMessage({
+          payer: releaser.address,
+          vault: row.vault,
+          withdrawal: row.withdrawal,
+          recipient: row.recipient,
+          recentBlockhash: latest.blockhash,
+        }),
+        releaser
+      );
+      await rpc<string>("sendTransaction", [
+        wire,
+        { encoding: "base64", preflightCommitment: "confirmed" },
+      ]);
+      sent++;
+    } catch (error) {
+      // E.g. already stopped on Solana, the network clock is a few seconds
+      // behind, or the releaser wallet needs devnet SOL. Next run retries.
+      console.error(`Couldn't release ${row.withdrawal}:`, error);
+    }
+  }
+  return sent;
+}
+
+// ---------- 3. Send emails ----------
 
 type Profile = {
+  owner: string;
   owner_name: string | null;
   owner_email: string | null;
   owner_time_zone: string | null;
@@ -271,7 +353,7 @@ async function sendDueEmails(db: Db): Promise<number> {
     if (!profiles.has(vault)) {
       const { data } = await db
         .from("vault_profiles")
-        .select("owner_name, owner_email, owner_time_zone")
+        .select("owner, owner_name, owner_email, owner_time_zone")
         .eq("vault", vault)
         .maybeSingle();
       profiles.set(vault, data);
@@ -384,6 +466,29 @@ async function sendDueEmails(db: Db): Promise<number> {
       )
         sent++;
     }
+  }
+  const { data: arrivals, error: arrivalError } = await db
+    .from("withdrawal_alerts")
+    .select("withdrawal, vault, recipient, amount_lamports, status")
+    .in("status", ["released", "approved_early"])
+    .gte("arrived_at", since)
+    .is("arrival_emailed_at", null);
+  if (arrivalError) throw arrivalError;
+  for (const row of arrivals ?? []) {
+    const profile = await profileOf(row.vault);
+    if (!profile?.owner_email) continue;
+    const email = arrivalEmail(profile.owner_email, {
+      amountLamports: BigInt(row.amount_lamports),
+      recipient: row.recipient,
+      ownerWallet: profile.owner,
+      early: row.status === "approved_early",
+    });
+    const key = {
+      table: "withdrawal_alerts",
+      column: "withdrawal",
+      value: row.withdrawal,
+    };
+    if (await sendOnce(db, key, "arrival_emailed_at", email)) sent++;
   }
   return sent;
 }
