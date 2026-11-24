@@ -13,8 +13,14 @@ import {
 } from "../../components/ui";
 import { ApproveDialog } from "../../components/payments/ApproveDialog";
 import { useWithdrawalActions } from "../../components/payments/useWithdrawalActions";
+import {
+  BACKEND_ENABLED,
+  useVaultAlerts,
+  useVaultProfiles,
+} from "../../lib/backend";
 import type { VaultState, WithdrawalState } from "../../lib/pause/accounts";
 import { explorerUrl } from "../../lib/pause/addresses";
+import { RELEASE_GRACE_SECS } from "../../lib/pause/constants";
 import {
   formatArrival,
   formatDayTime,
@@ -33,9 +39,11 @@ import {
   useWithdrawals,
 } from "../../lib/pause/hooks";
 import {
+  alertReasons,
+  ownersName,
   paidAddresses,
+  reasonLabel,
   type UrgentReason,
-  urgentReasons,
 } from "../../lib/pause/withdrawals";
 import { useNow } from "../../lib/useNow";
 
@@ -114,15 +122,18 @@ export function PaymentDetailView({
   const now = useNow();
   const solPrice = useSolPrice();
   const [approving, setApproving] = useState(false);
+  const { profiles } = useVaultProfiles([vault.address]);
+  const alerts = useVaultAlerts([vault.address]);
+  const ownerName = profiles[vault.address]?.ownerName ?? null;
+  const guardianName = profiles[vault.address]?.guardianName ?? null;
   const { data } = withdrawal;
   const status = data.status;
   const waiting = status.__kind === "Waiting";
   const amount = formatSol(data.amountLamports);
   const requestedAt = fromUnix(data.requestedAt);
   const releaseAt = fromUnix(data.releaseAt);
-  const waitOver = now >= releaseAt;
   const isNew = !paidAddresses(all).has(data.recipient);
-  const reasons = waiting ? urgentReasons(withdrawal, vault, all) : [];
+  const reasons = alertReasons(withdrawal, vault, all, alerts[vault.address]);
   const toOwner = data.recipient === vault.data.owner;
   const hasGuardian = vault.data.guardian.__option === "Some";
   const usd = formatUsd(data.amountLamports, solPrice);
@@ -150,6 +161,7 @@ export function PaymentDetailView({
           viewer={viewer}
           releaseAt={releaseAt}
           now={now}
+          guardianName={guardianName}
         />
         <h1 className="text-h1 font-semibold md:text-h1-lg">
           {heading({
@@ -159,16 +171,17 @@ export function PaymentDetailView({
             toOwner,
             isNew,
             recipient: data.recipient,
+            ownerName,
           })}
         </h1>
         {waiting && (
           <p className="text-text-2">
             {viewer === "guardian"
-              ? "Did the owner ask for this? If you're not sure, call them before you decide."
+              ? `Did ${ownerName ?? "the owner"} ask for this? If you're not sure, call them before you decide.`
               : viewer === "owner"
                 ? reasons.length > 0
                   ? `Was this you? If not, stop it now. It arrives ${formatArrival(releaseAt, now)} if no one stops it.`
-                  : `Arrives ${formatArrival(releaseAt, now)}. You can stop it until then.${hasGuardian ? " Need it sooner? Ask your guardian to approve it." : ""}`
+                  : `Arrives ${formatArrival(releaseAt, now)}. You can stop it until then.${hasGuardian ? ` Need it sooner? Ask ${guardianName ?? "your guardian"} to approve it.` : ""}`
                 : `Arrives ${formatArrival(releaseAt, now)} unless the owner or guardian stops it.`}
           </p>
         )}
@@ -188,7 +201,7 @@ export function PaymentDetailView({
       )}
 
       {reasons.length > 0 && viewer !== "other" && (
-        <Reasons reasons={reasons} />
+        <Reasons reasons={reasons} viewer={viewer} ownerName={ownerName} />
       )}
 
       {waiting && (
@@ -196,7 +209,9 @@ export function PaymentDetailView({
           vault={vault}
           withdrawal={withdrawal}
           viewer={viewer}
-          waitOver={waitOver}
+          releaseAt={releaseAt}
+          now={now}
+          ownerName={ownerName}
           onApprove={() => setApproving(true)}
         />
       )}
@@ -267,8 +282,12 @@ function heading(p: {
   toOwner: boolean;
   isNew: boolean;
   recipient: Address;
+  ownerName: string | null;
 }): string {
-  const where = p.toOwner ? "the owner's wallet" : shortAddress(p.recipient);
+  const where = p.toOwner
+    ? `${ownersName(p.ownerName)} wallet`
+    : shortAddress(p.recipient);
+  const owner = p.ownerName ?? "The owner";
   switch (p.status) {
     case "Waiting":
       if (p.viewer === "owner") {
@@ -277,8 +296,8 @@ function heading(p: {
           : `${p.amount} to ${shortAddress(p.recipient)}`;
       }
       return p.isNew
-        ? `The owner is sending ${p.amount} to a new address.`
-        : `The owner is sending ${p.amount} to ${where}.`;
+        ? `${owner} is sending ${p.amount} to a new address.`
+        : `${owner} is sending ${p.amount} to ${where}.`;
     case "Stopped":
       return p.viewer === "owner"
         ? `Stopped. ${p.amount} is still in your vault.`
@@ -305,11 +324,13 @@ function Status({
   viewer,
   releaseAt,
   now,
+  guardianName,
 }: {
   status: WithdrawalState["data"]["status"];
   viewer: Viewer;
   releaseAt: Date;
   now: Date;
+  guardianName: string | null;
 }) {
   switch (status.__kind) {
     case "Waiting": {
@@ -331,13 +352,21 @@ function Status({
         <StatusLabel status="approved-early">
           {viewer === "guardian"
             ? "You sent it early"
-            : "Your guardian sent it early"}
+            : `${guardianName ?? "Your guardian"} sent it early`}
         </StatusLabel>
       );
   }
 }
 
-function Reasons({ reasons }: { reasons: UrgentReason[] }) {
+function Reasons({
+  reasons,
+  viewer,
+  ownerName,
+}: {
+  reasons: UrgentReason[];
+  viewer: Viewer;
+  ownerName: string | null;
+}) {
   return (
     <div className="flex flex-col gap-2">
       <p className="text-small text-text-2">Why this looks urgent</p>
@@ -348,9 +377,7 @@ function Reasons({ reasons }: { reasons: UrgentReason[] }) {
               <NewAddressTag />
             ) : (
               <span className="inline-flex rounded-full bg-surface-2 px-2 py-0.5 text-small text-text-2">
-                {reason.kind === "share"
-                  ? `${reason.percent}% of the savings`
-                  : "Another payment is waiting"}
+                {reasonLabel(reason, viewer, ownerName)}
               </span>
             )}
           </li>
@@ -369,24 +396,36 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-/** Stop (owner, guardian), Approve now (guardian), Release (anyone, after the wait). */
+/**
+ * Stop (owner, guardian), Approve now (guardian), Release (anyone, after the
+ * wait). The backend releases on its own when the wait ends (FR-12), so the
+ * Release button only shows if it hasn't after a grace period.
+ */
 function Actions({
   vault,
   withdrawal,
   viewer,
-  waitOver,
+  releaseAt,
+  now,
+  ownerName,
   onApprove,
 }: {
   vault: VaultState;
   withdrawal: WithdrawalState;
   viewer: Viewer;
-  waitOver: boolean;
+  releaseAt: Date;
+  now: Date;
+  ownerName: string | null;
   onApprove: () => void;
 }) {
   const actions = useWithdrawalActions(vault, withdrawal);
   const [pending, setPending] = useState<"stop" | "release" | null>(null);
   const busy = actions.isSending;
   const canStop = viewer === "owner" || viewer === "guardian";
+  // Without a backend nothing releases on its own, so there's no grace period.
+  const graceMs = BACKEND_ENABLED ? RELEASE_GRACE_SECS * 1000 : 0;
+  const waitOver = now >= releaseAt;
+  const autoSending = waitOver && now.getTime() < releaseAt.getTime() + graceMs;
 
   async function act(which: "stop" | "release") {
     setPending(which);
@@ -396,10 +435,18 @@ function Actions({
 
   return (
     <div className="flex flex-col gap-3">
-      {waitOver && actions.connected && (
+      {autoSending && (
+        <p className="text-small text-text-2" role="status">
+          The wait is over. Pause is sending it now.
+        </p>
+      )}
+      {waitOver && !autoSending && actions.connected && (
         <>
           <p className="text-small text-text-2">
-            The wait is over. Send it now. It can only go to{" "}
+            {BACKEND_ENABLED
+              ? "Pause hasn't sent it yet. You can send it now."
+              : "The wait is over. You can send it now."}{" "}
+            It can only go to{" "}
             <span className="font-mono">
               {shortAddress(withdrawal.data.recipient)}
             </span>
@@ -440,7 +487,8 @@ function Actions({
             Approve now
           </Button>
           <p className="text-small text-text-3">
-            Only approve if the owner told you themselves, by call or in person.
+            Only approve if {ownerName ?? "the owner"} told you themselves, by
+            call or in person.
           </p>
         </>
       )}

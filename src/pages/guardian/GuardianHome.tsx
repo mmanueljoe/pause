@@ -13,6 +13,12 @@ import {
   NewAddressTag,
   StatusLabel,
 } from "../../components/ui";
+import {
+  type VaultAlerts,
+  type VaultProfile,
+  useVaultAlerts,
+  useVaultProfiles,
+} from "../../lib/backend";
 import type { VaultState, WithdrawalState } from "../../lib/pause/accounts";
 import {
   describeChange,
@@ -32,9 +38,11 @@ import {
   useWithdrawalsOfVaults,
 } from "../../lib/pause/hooks";
 import {
+  alertReasons,
+  ownersName,
   paidAddresses,
+  reasonLabel,
   type UrgentReason,
-  urgentReasons,
 } from "../../lib/pause/withdrawals";
 import { guardianSince } from "../../lib/pause/historyText";
 import { useNow } from "../../lib/useNow";
@@ -48,9 +56,11 @@ export function GuardianHome() {
     error,
     refresh: refreshVaults,
   } = useGuardedVaults(wallet);
-  const { byVault, refresh: refreshWithdrawals } = useWithdrawalsOfVaults(
-    vaults.map((v) => v.address)
-  );
+  const vaultAddresses = vaults.map((v) => v.address);
+  const { byVault, refresh: refreshWithdrawals } =
+    useWithdrawalsOfVaults(vaultAddresses);
+  const { profiles } = useVaultProfiles(vaultAddresses);
+  const alerts = useVaultAlerts(vaultAddresses);
   usePauseProgramChanges(() => {
     void refreshVaults();
     void refreshWithdrawals();
@@ -72,7 +82,14 @@ export function GuardianHome() {
       </p>
     );
   }
-  return <GuardianHomeView vaults={vaults} byVault={byVault} />;
+  return (
+    <GuardianHomeView
+      vaults={vaults}
+      byVault={byVault}
+      profiles={profiles}
+      alerts={alerts}
+    />
+  );
 }
 
 type Pinned =
@@ -88,9 +105,13 @@ type Pinned =
 export function GuardianHomeView({
   vaults,
   byVault,
+  profiles = {},
+  alerts = {},
 }: {
   vaults: VaultState[];
   byVault: Map<string, WithdrawalState[]>;
+  profiles?: Record<string, VaultProfile>;
+  alerts?: VaultAlerts;
 }) {
   if (vaults.length === 0) {
     return (
@@ -114,7 +135,7 @@ export function GuardianHomeView({
     const all = byVault.get(vault.address) ?? [];
     for (const w of all) {
       if (w.data.status.__kind !== "Waiting") continue;
-      const reasons = urgentReasons(w, vault, all);
+      const reasons = alertReasons(w, vault, all, alerts[vault.address]);
       if (reasons.length > 0)
         pinned.push({ kind: "payment", vault, withdrawal: w, reasons });
     }
@@ -144,11 +165,13 @@ export function GuardianHomeView({
             vault={item.vault}
             withdrawal={item.withdrawal}
             reasons={item.reasons}
+            ownerName={profiles[item.vault.address]?.ownerName ?? null}
           />
         ) : (
           <PendingChangeCard
             key={`change-${item.vault.address}`}
             vault={item.vault}
+            ownerName={profiles[item.vault.address]?.ownerName ?? null}
           />
         )
       )}
@@ -170,10 +193,12 @@ function UrgentPayment({
   vault,
   withdrawal,
   reasons,
+  ownerName,
 }: {
   vault: VaultState;
   withdrawal: WithdrawalState;
   reasons: UrgentReason[];
+  ownerName: string | null;
 }) {
   const now = useNow();
   const actions = useWithdrawalActions(vault, withdrawal);
@@ -193,8 +218,8 @@ function UrgentPayment({
           {`Paused · arrives ${sameDay ? formatTime(releaseAt) : formatArrival(releaseAt, now)}`}
         </StatusLabel>
         <h2 className="text-h2 font-semibold md:text-h2-lg">
-          The owner is sending {formatSol(data.amountLamports)} to{" "}
-          {isNew ? "a new address" : shortAddress(data.recipient)}.
+          {ownerName ?? "The owner"} is sending {formatSol(data.amountLamports)}{" "}
+          to {isNew ? "a new address" : shortAddress(data.recipient)}.
         </h2>
         <p className="text-text-2">
           Vault of{" "}
@@ -211,9 +236,7 @@ function UrgentPayment({
                 <NewAddressTag />
               ) : (
                 <span className="inline-flex rounded-full bg-surface-2 px-2 py-0.5 text-small text-text-2">
-                  {r.kind === "share"
-                    ? `${r.percent}% of the savings`
-                    : "Another payment is waiting"}
+                  {reasonLabel(r, "guardian", ownerName)}
                 </span>
               )}
             </li>
@@ -267,7 +290,13 @@ function UrgentPayment({
 }
 
 /** A less-safe settings change waiting to apply, with Stop this change (FR-15). */
-function PendingChangeCard({ vault }: { vault: VaultState }) {
+function PendingChangeCard({
+  vault,
+  ownerName,
+}: {
+  vault: VaultState;
+  ownerName: string | null;
+}) {
   const actions = useWithdrawalActions(vault);
   const change = vault.data.pendingChange;
   if (change.__option === "None") return null;
@@ -281,7 +310,7 @@ function PendingChangeCard({ vault }: { vault: VaultState }) {
       <div className="flex flex-col items-start gap-3">
         <StatusLabel status="waiting">{`Change waiting · applies ${formatDayTime(applyAfter)}`}</StatusLabel>
         <h2 className="text-h2 font-semibold md:text-h2-lg">
-          The owner wants to{" "}
+          {ownerName ?? "The owner"} wants to{" "}
           {describeChange(
             change.value.kind,
             vault.data.guardian.__option === "Some"
@@ -293,8 +322,8 @@ function PendingChangeCard({ vault }: { vault: VaultState }) {
           <span className="font-mono text-small">
             {shortAddress(vault.data.owner)}
           </span>
-          . A thief with the owner's key would try exactly this. If they didn't
-          tell you about it, stop it.
+          . A thief with {ownersName(ownerName)} key would try exactly this. If
+          they didn't tell you about it, stop it.
         </p>
       </div>
       <Countdown

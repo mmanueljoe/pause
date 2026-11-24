@@ -6,6 +6,7 @@ import {
   useVaultAddress,
   useWalletAddress,
 } from "../../lib/pause/hooks";
+import { useArrivalToasts } from "../payments/useArrivalToasts";
 import { DemoLabel, Logo } from "../ui";
 import { cx } from "../ui/cx";
 import { AccountMenu } from "./AccountMenu";
@@ -18,6 +19,7 @@ export function AppShell() {
   const isOwner = vault !== null;
   const isGuardian = guarded.length > 0;
   const showNav = isOwner || isGuardian;
+  useArrivalToasts();
 
   return (
     <div className="flex min-h-dvh flex-col">

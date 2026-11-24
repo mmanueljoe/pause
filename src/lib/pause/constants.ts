@@ -23,3 +23,9 @@ export const SETUP_GUARDIAN_WAIT_SECS = DEMO_MODE ? 3 * 60 : 3 * DAY;
 
 /** Longest withdrawal wait the program accepts: 7 days. */
 export const MAX_WITHDRAWAL_WAIT_SECS = 7 * DAY;
+
+/**
+ * After a wait ends, the backend releases the withdrawal on its own (FR-12).
+ * The manual Release button only shows if it hasn't after this long.
+ */
+export const RELEASE_GRACE_SECS = 180;
