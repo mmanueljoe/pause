@@ -29,7 +29,8 @@
     "program:format": "cd anchor && cargo fmt --all",
     "codegen": "codama run js",
     "setup": "npm run program:build && npm run codegen",
-    "prepare": "husky"
+    "prepare": "husky",
+    "backend:test": "node --test 'supabase/functions/**/*.test.ts'"
   },
   "lint-staged": {
     "*.{ts,tsx}": [

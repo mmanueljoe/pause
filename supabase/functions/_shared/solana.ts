@@ -23,7 +23,14 @@ export async function rpc<T>(method: string, params: unknown[]): Promise<T> {
   return body.result as T;
 }
 
-export type VaultInfo = { owner: string; guardian: string | null };
+export type VaultInfo = {
+  owner: string;
+  guardian: string | null;
+  /** All SOL in the account, including the rent minimum. */
+  lamports: number;
+  /** Account size in bytes (for the rent minimum). */
+  space: number;
+};
 
 /**
  * Reads who owns and guards a vault, straight from Solana. On-chain data is
@@ -32,7 +39,11 @@ export type VaultInfo = { owner: string; guardian: string | null };
  */
 export async function readVault(vault: string): Promise<VaultInfo | null> {
   const result = await rpc<{
-    value: { owner: string; data: [string, string] } | null;
+    value: {
+      owner: string;
+      lamports: number;
+      data: [string, string];
+    } | null;
   }>("getAccountInfo", [
     vault,
     { encoding: "base64", commitment: "confirmed" },
@@ -44,5 +55,5 @@ export async function readVault(vault: string): Promise<VaultInfo | null> {
     return null;
   const owner = encodeBase58(bytes.slice(8, 40));
   const guardian = bytes[40] === 1 ? encodeBase58(bytes.slice(41, 73)) : null;
-  return { owner, guardian };
+  return { owner, guardian, lamports: account.lamports, space: bytes.length };
 }

@@ -29,8 +29,8 @@ export type Email = {
   subject: string;
   /** Short paragraphs, plain text. */
   paragraphs: string[];
-  /** One button; it only opens Pause, never acts on its own (FR-17a). */
-  button?: { label: string; path: string };
+  /** Buttons only open Pause, never act on their own (FR-17a). First is main. */
+  buttons?: { label: string; path: string }[];
 };
 
 function escapeHtml(text: string): string {
@@ -42,21 +42,26 @@ function escapeHtml(text: string): string {
 }
 
 export function renderEmail(email: Email): { html: string; text: string } {
-  const link = email.button ? `${siteUrl()}${email.button.path}` : null;
+  const buttons = (email.buttons ?? []).map((b) => ({
+    label: b.label,
+    link: `${siteUrl()}${b.path}`,
+  }));
   const p = (t: string) =>
     `<p style="margin:0 0 16px;font-size:16px;line-height:1.5;color:#1a1a1a">${escapeHtml(t)}</p>`;
+  const button = (b: { label: string; link: string }, main: boolean) =>
+    `<a href="${escapeHtml(b.link)}" style="display:inline-block;margin:0 8px 8px 0;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:600;${main ? "background:#1a1a1a;color:#ffffff" : "border:1px solid #1a1a1a;color:#1a1a1a"}">${escapeHtml(b.label)}</a>`;
   const html = [
     `<div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;max-width:520px;margin:0 auto;padding:24px">`,
     ...email.paragraphs.map(p),
-    link
-      ? `<p style="margin:24px 0"><a href="${escapeHtml(link)}" style="display:inline-block;background:#1a1a1a;color:#ffffff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:600">${escapeHtml(email.button!.label)}</a></p>`
+    buttons.length
+      ? `<p style="margin:24px 0 16px">${buttons.map((b, i) => button(b, i === 0)).join("")}</p>`
       : "",
     `<p style="margin:32px 0 0;font-size:13px;line-height:1.5;color:#666">${escapeHtml(safetyLine())}</p>`,
     `</div>`,
   ].join("");
   const text = [
     ...email.paragraphs,
-    ...(link ? [`${email.button!.label}: ${link}`] : []),
+    ...buttons.map((b) => `${b.label}: ${b.link}`),
     "",
     safetyLine(),
   ].join("\n\n");
@@ -119,6 +124,6 @@ export function welcomeEmail(input: {
       `Every withdrawal from ${possessive} vault waits before it leaves. We'll email you here when one is waiting. If it looks like theft, the email is marked urgent and you can stop it in Pause.`,
       "Please check this email didn't land in spam. If it did, mark it as not spam so you don't miss an alert.",
     ],
-    button: { label: "Open Pause", path: "/" },
+    buttons: [{ label: "Open Pause", path: "/" }],
   };
 }
